@@ -34,7 +34,7 @@ func (h *VerbalQuestionHandler) Get(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid ID")
 	}
-	q, err := h.Service.Get(id)
+	q, err := h.Service.GetByID(id)
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get question"+err.Error())

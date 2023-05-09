@@ -1,10 +1,16 @@
 package models
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 type Competence int
 type FramedAs int
 type QuestionType int
 type Difficulty int
 
+// ENUM types
 const (
 	Easy Difficulty = iota
 	Medium
@@ -32,6 +38,7 @@ const (
 	SentenceEquivalence
 )
 
+// String equivalents for ENUM types
 func (d Difficulty) String() string {
 	switch d {
 	case Easy:
@@ -90,15 +97,115 @@ func (q QuestionType) String() string {
 	}
 }
 
+// Marshal JSON
+func (d Difficulty) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+func (c Competence) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.String())
+}
+
+func (f FramedAs) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.String())
+}
+
+func (q QuestionType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(q.String())
+}
+
+// Unmarshal Json
+func (d *Difficulty) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch s {
+	case "Easy":
+		*d = Easy
+	case "Medium":
+		*d = Medium
+	case "Hard":
+		*d = Hard
+	default:
+		return errors.New("invalid difficulty value")
+	}
+	return nil
+}
+
+func (c *Competence) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch s {
+	case "Analyzing and drawing conclusions":
+		*c = AnalyzingAndDrawingConclusions
+	case "Reasoning from incomplete data":
+		*c = ReasoningFromIncompleteData
+	case "Identifying authors assumptions/perspective":
+		*c = IdentifyingAuthorsAssumptionsPerspective
+	case "Understanding multiple levels of meaning":
+		*c = UnderstandingMultipleLevelsOfMeaning
+	case "Selecting important info":
+		*c = SelectingImportantInfo
+	case "Distinguish major/minor points":
+		*c = DistinguishMajorMinorPoints
+	default:
+		return errors.New("invalid competence value")
+	}
+	return nil
+}
+
+func (f *FramedAs) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch s {
+	case "MCQSingleAnswer":
+		*f = MCQSingleAnswer
+	case "MCQMultipleChoices":
+		*f = MCQMultipleChoices
+	case "SelectSentence":
+		*f = SelectSentence
+	default:
+		return errors.New("invalid framed_as value")
+	}
+	return nil
+}
+
+func (q *QuestionType) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch s {
+	case "ReadingComprehension":
+		*q = ReadingComprehension
+	case "TextCompletion":
+		*q = TextCompletion
+	case "SentenceEquivalence":
+		*q = SentenceEquivalence
+	default:
+		return errors.New("invalid question type value")
+	}
+	return nil
+}
+
+/**
+* Struct that is used to represent a verbal question in
+* the database.
+**/
 type VerbalQuestion struct {
-	VerbalQuestionID int          `json:"verbal_question_id"`
-	Competence       Competence   `json:"competence"`
-	FramedAs         FramedAs     `json:"framed_as"`
-	Type             QuestionType `json:"type"`
-	ParagraphID      int          `json:"paragraph_id"`
-	Question         string       `json:"question"`
-	Options          []string     `json:"options"`
-	Answer           []string     `json:"answer"`
-	Explanation      string       `json:"explanation"`
-	Difficulty       Difficulty   `json:"difficulty"`
+	ID          int          `json:"id"`
+	Competence  Competence   `json:"competence"`
+	FramedAs    FramedAs     `json:"framed_as"`
+	Type        QuestionType `json:"type"`
+	ParagraphID int          `json:"paragraph_id"`
+	Question    string       `json:"question"`
+	Options     []string     `json:"options"`
+	Answer      []string     `json:"answer"`
+	Explanation string       `json:"explanation"`
+	Difficulty  Difficulty   `json:"difficulty"`
 }
