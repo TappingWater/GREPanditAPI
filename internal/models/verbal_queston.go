@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 )
@@ -115,6 +116,26 @@ func (q QuestionType) MarshalJSON() ([]byte, error) {
 }
 
 // Unmarshal Json
+func (v *VerbalQuestion) UnmarshalJSON(data []byte) error {
+	type Alias VerbalQuestion
+	aux := struct {
+		ParagraphID *int64 `json:"paragraph_id"`
+		*Alias
+	}{
+		Alias: (*Alias)(v),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if aux.ParagraphID != nil {
+		v.ParagraphID.Int64 = *aux.ParagraphID
+		v.ParagraphID.Valid = true
+	} else {
+		v.ParagraphID.Valid = false
+	}
+	return nil
+}
+
 func (d *Difficulty) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
@@ -194,18 +215,71 @@ func (q *QuestionType) UnmarshalJSON(data []byte) error {
 }
 
 /**
-* Struct that is used to represent a verbal question in
-* the database.
+*   VerbalQuestion:
+*     type: object
+*     required:
+*       - id
+*       - competence
+*       - framed_as
+*       - type
+*       - question
+*       - options
+*       - answer
+*       - explanation
+*       - difficulty
+*     properties:
+*       id:
+*         type: integer
+*         example: 1
+*       competence:
+*         type: string
+*         enum: ["Analyzing and drawing conclusions", "Reasoning from incomplete data", "Identifying authors assumptions/perspective", "Understanding multiple levels of meaning", "Selecting important info", "Distinguish major/minor points"]
+*         example: "Analyzing and drawing conclusions"
+*       framed_as:
+*         type: string
+*         enum: ["MCQSingleAnswer", "MCQMultipleChoices", "SelectSentence"]
+*         example: "MCQSingleAnswer"
+*       type:
+*         type: string
+*         enum: ["ReadingComprehension", "TextCompletion", "SentenceEquivalence"]
+*         example: "ReadingComprehension"
+*       paragraph_id:
+*         type: integer
+*         example: 1
+*       paragraph_text:
+*         type: string
+*         example: "This is a sample paragraph text."
+*       question:
+*         type: string
+*         example: "What is the main idea of the paragraph?"
+*       options:
+*         type: array
+*         items:
+*           type: string
+*         example: ["Option A", "Option B", "Option C"]
+*       answer:
+*         type: array
+*         items:
+*           type: string
+*         example: ["Option A"]
+*       explanation:
+*         type: string
+*         example: "Option A is correct because..."
+*       difficulty:
+*         type: string
+*         enum: ["Easy", "Medium", "Hard"]
+*         example: "Easy"
 **/
 type VerbalQuestion struct {
-	ID          int          `json:"id"`
-	Competence  Competence   `json:"competence"`
-	FramedAs    FramedAs     `json:"framed_as"`
-	Type        QuestionType `json:"type"`
-	ParagraphID int          `json:"paragraph_id"`
-	Question    string       `json:"question"`
-	Options     []string     `json:"options"`
-	Answer      []string     `json:"answer"`
-	Explanation string       `json:"explanation"`
-	Difficulty  Difficulty   `json:"difficulty"`
+	ID            int            `json:"id"`
+	Competence    Competence     `json:"competence"`
+	FramedAs      FramedAs       `json:"framed_as"`
+	Type          QuestionType   `json:"type"`
+	ParagraphID   sql.NullInt64  `json:"paragraph_id,omitempty"`
+	ParagraphText sql.NullString `json:"paragraph_text,omitempty"`
+	Question      string         `json:"question"`
+	Options       []string       `json:"options"`
+	Answer        []string       `json:"answer"`
+	Explanation   string         `json:"explanation"`
+	Difficulty    Difficulty     `json:"difficulty"`
 }
