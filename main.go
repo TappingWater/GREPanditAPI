@@ -77,7 +77,5 @@ func registerRoutes(e *echo.Echo, verbalQuestionHandler *handlers.VerbalQuestion
 	wGroup := e.Group("/word")
 	wGroup.POST("", wordHandler.Create)
 	wGroup.GET("/:id", wordHandler.GetByID)
-	wGroup.GET("/:word", wordHandler.GetByWord)
-	wGroup.PUT("/:id", wordHandler.Update)
-	wGroup.DELETE("/:id", wordHandler.Delete)
+	wGroup.GET("/word/:word", wordHandler.GetByWord)
 }

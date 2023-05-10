@@ -24,8 +24,9 @@ func Migrate(db *pgxpool.Pool) {
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS words (
 			id SERIAL PRIMARY KEY,
-			word TEXT,
-			meanings TEXT[]
+			word TEXT UNIQUE,
+			meanings TEXT[],
+			examples TEXT[]
 		);
 	`)
 

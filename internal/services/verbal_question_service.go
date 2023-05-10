@@ -2,10 +2,8 @@ package services
 
 import (
 	"context"
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
+
+	"github.com/Masterminds/squirrel"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -27,21 +25,31 @@ func (s *VerbalQuestionService) Create(ctx context.Context, q *models.VerbalQues
 	if q.ParagraphID.Valid {
 		paragraphID = q.ParagraphID.Int64
 	}
-	return s.DB.QueryRow(ctx, `
-		INSERT INTO verbal_questions (competence, framed_as, type, paragraph_id, question, options, answer, explanation, difficulty)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING id;
-	`, q.Competence, q.FramedAs, q.Type, paragraphID, q.Question, pq.Array(q.Options), pq.Array(q.Answer), q.Explanation, q.Difficulty).Scan(&q.ID)
+	query := squirrel.Insert("verbal_questions").
+		Columns("competence", "framed_as", "type", "paragraph_id", "question", "options", "answer", "explanation", "difficulty").
+		Values(q.Competence, q.FramedAs, q.Type, paragraphID, q.Question, pq.Array(q.Options), pq.Array(q.Answer), q.Explanation, q.Difficulty).
+		Suffix("RETURNING id").
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
+	err = s.DB.QueryRow(ctx, sqlQuery, args...).Scan(&q.ID)
+	return err
 }
 
 func (s *VerbalQuestionService) GetByID(ctx context.Context, id int) (*models.VerbalQuestion, error) {
 	q := &models.VerbalQuestion{}
-	err := s.DB.QueryRow(ctx, `
-		SELECT q.id, q.competence, q.framed_as, q.type, q.paragraph_id, COALESCE(p.paragraph_text, ''), q.question, q.options, q.answer, q.explanation, q.difficulty
-		FROM verbal_questions AS q
-		LEFT JOIN paragraphs AS p ON q.paragraph_id = p.id
-		WHERE q.id = $1;
-	`, id).Scan(&q.ID, &q.Competence, &q.FramedAs, &q.Type, &q.ParagraphID, &q.ParagraphText, &q.Question, pq.Array(&q.Options), pq.Array(&q.Answer), &q.Explanation, &q.Difficulty)
+	query := squirrel.Select("q.id", "q.competence", "q.framed_as", "q.type", "q.paragraph_id", "COALESCE(p.paragraph_text, '')", "q.question", "q.options", "q.answer", "q.explanation", "q.difficulty").
+		From("verbal_questions AS q").
+		LeftJoin("paragraphs AS p ON q.paragraph_id = p.id").
+		Where(squirrel.Eq{"q.id": id}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	err = s.DB.QueryRow(ctx, sqlQuery, args...).Scan(&q.ID, &q.Competence, &q.FramedAs, &q.Type, &q.ParagraphID, &q.ParagraphText, &q.Question, pq.Array(&q.Options), pq.Array(&q.Answer), &q.Explanation, &q.Difficulty)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, echo.ErrNotFound
@@ -60,38 +68,30 @@ func (s *VerbalQuestionService) Count(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-func (s *VerbalQuestionService) Random(ctx context.Context, limit, questionType, competence, framedAs, difficulty int, excludeIDs []int) ([]models.VerbalQuestion, error) {
-	query := `SELECT * FROM verbal_questions`
-	whereClauses := []string{}
-	args := []interface{}{limit}
+func (s *VerbalQuestionService) Random(ctx context.Context, limit int, questionType models.QuestionType, competence models.Competence, framedAs models.FramedAs, difficulty models.Difficulty, excludeIDs []int) ([]models.VerbalQuestion, error) {
+	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+	query := sb.Select("*").From("verbal_questions")
 	if questionType != 0 {
-		whereClauses = append(whereClauses, "type = $?")
-		args = append(args, questionType)
+		query = query.Where(squirrel.Eq{"type": questionType})
 	}
 	if competence != 0 {
-		whereClauses = append(whereClauses, "competence = $?")
-		args = append(args, competence)
+		query = query.Where(squirrel.Eq{"competence": competence})
 	}
 	if framedAs != 0 {
-		whereClauses = append(whereClauses, "framed_as = $?")
-		args = append(args, framedAs)
+		query = query.Where(squirrel.Eq{"framed_as": framedAs})
 	}
 	if difficulty != 0 {
-		whereClauses = append(whereClauses, "difficulty = $?")
-		args = append(args, difficulty)
+		query = query.Where(squirrel.Eq{"difficulty": difficulty})
 	}
 	if len(excludeIDs) > 0 {
-		placeholders := strings.Trim(strings.Repeat("$?,", len(excludeIDs)), ",")
-		whereClauses = append(whereClauses, fmt.Sprintf("id NOT IN (%s)", placeholders))
-		for _, id := range excludeIDs {
-			args = append(args, id)
-		}
+		query = query.Where(squirrel.NotEq{"id": excludeIDs})
 	}
-	if len(whereClauses) > 0 {
-		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	query = query.OrderBy("RANDOM()").Limit(uint64(limit))
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
 	}
-	query += " ORDER BY RANDOM() LIMIT $1"
-	rows, err := s.DB.Query(ctx, ReplaceSQLPlaceholders(query), args...)
+	rows, err := s.DB.Query(ctx, sqlQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,18 @@ func (s *VerbalQuestionService) Random(ctx context.Context, limit, questionType,
 	var questions []models.VerbalQuestion
 	for rows.Next() {
 		var q models.VerbalQuestion
-		err = rows.Scan(&q.ID, &q.Competence, &q.FramedAs, &q.Type, &q.ParagraphID, &q.Question, &q.Options, &q.Answer, &q.Explanation, &q.Difficulty)
+		err = rows.Scan(
+			&q.ID,
+			&q.Competence,
+			&q.FramedAs,
+			&q.Type,
+			&q.ParagraphID,
+			&q.Question,
+			&q.ParagraphText,
+			pq.Array(&q.Options),
+			pq.Array(&q.Answer),
+			&q.Explanation,
+			&q.Difficulty)
 		if err != nil {
 			return nil, err
 		}
@@ -109,13 +120,4 @@ func (s *VerbalQuestionService) Random(ctx context.Context, limit, questionType,
 		return nil, err
 	}
 	return questions, nil
-}
-
-func ReplaceSQLPlaceholders(sql string) string {
-	n := 0
-	re := regexp.MustCompile(`\$\?`)
-	return re.ReplaceAllStringFunc(sql, func(string) string {
-		n++
-		return "$" + strconv.Itoa(n)
-	})
 }

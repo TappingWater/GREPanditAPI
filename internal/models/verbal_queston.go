@@ -283,3 +283,12 @@ type VerbalQuestion struct {
 	Explanation   string         `json:"explanation"`
 	Difficulty    Difficulty     `json:"difficulty"`
 }
+
+type RandomQuestionsRequest struct {
+	Limit        int          `json:"limit"`
+	QuestionType QuestionType `json:"question_type,omitempty"`
+	Competence   Competence   `json:"competence,omitempty"`
+	FramedAs     FramedAs     `json:"framed_as,omitempty"`
+	Difficulty   Difficulty   `json:"difficulty,omitempty"`
+	ExcludeIDs   []int        `json:"exclude_ids,omitempty"`
+}
