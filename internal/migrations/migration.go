@@ -11,17 +11,6 @@ func Migrate(db *pgxpool.Pool) {
 	ctx := context.Background()
 
 	_, err := db.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS paragraphs (
-			id SERIAL PRIMARY KEY,
-			paragraph_text TEXT
-		);
-	`)
-
-	if err != nil {
-		log.Fatalf("Could not create paragraphs table: %v", err)
-	}
-
-	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS words (
 			id SERIAL PRIMARY KEY,
 			word TEXT UNIQUE,
@@ -40,14 +29,13 @@ func Migrate(db *pgxpool.Pool) {
 			competence INT,
 			framed_as INT,
 			type INT,
-			paragraph_id INT,
+			paragraph TEXT,
 			question TEXT,
 			options TEXT[],
 			answer TEXT[],
 			word TEXT[],
 			explanation TEXT,
-			difficulty INT,
-			FOREIGN KEY (paragraph_id) REFERENCES paragraphs(id)
+			difficulty INT
 		);
 	`)
 

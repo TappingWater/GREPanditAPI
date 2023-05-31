@@ -50,6 +50,7 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(middleware.CORS()) // Enable CORS
 
 	// Register routes
 	registerRoutes(e, verbalQuestionHandler, paragraphHandler, wordHandler)
@@ -65,7 +66,7 @@ func registerRoutes(e *echo.Echo, verbalQuestionHandler *handlers.VerbalQuestion
 	vqGroup := e.Group("/vbquestion")
 	vqGroup.POST("", verbalQuestionHandler.Create)
 	vqGroup.GET("/:id", verbalQuestionHandler.Get)
-	vqGroup.GET("/random", verbalQuestionHandler.GetRandomQuestions)
+	vqGroup.POST("/random", verbalQuestionHandler.GetRandomQuestions)
 	vqGroup.GET("/count", verbalQuestionHandler.Count)
 
 	// Paragraph routes

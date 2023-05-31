@@ -20,14 +20,31 @@ func NewVerbalQuestionService(db *pgxpool.Pool) *VerbalQuestionService {
 	return &VerbalQuestionService{DB: db}
 }
 
-func (s *VerbalQuestionService) Create(ctx context.Context, q *models.VerbalQuestion) error {
-	var paragraphID interface{} = nil
-	if q.ParagraphID.Valid {
-		paragraphID = q.ParagraphID.Int64
-	}
+func (s *VerbalQuestionService) Create(
+	ctx context.Context,
+	q *models.VerbalQuestion,
+) error {
 	query := squirrel.Insert("verbal_questions").
-		Columns("competence", "framed_as", "type", "paragraph_id", "question", "options", "answer", "explanation", "difficulty").
-		Values(q.Competence, q.FramedAs, q.Type, paragraphID, q.Question, pq.Array(q.Options), pq.Array(q.Answer), q.Explanation, q.Difficulty).
+		Columns(
+			"competence",
+			"framed_as",
+			"type",
+			"paragraph",
+			"question",
+			"options",
+			"answer",
+			"explanation",
+			"difficulty").
+		Values(
+			q.Competence,
+			q.FramedAs,
+			q.Type,
+			q.Paragraph,
+			q.Question,
+			pq.Array(q.Options),
+			pq.Array(q.Answer),
+			q.Explanation,
+			q.Difficulty).
 		Suffix("RETURNING id").
 		PlaceholderFormat(squirrel.Dollar)
 	sqlQuery, args, err := query.ToSql()
@@ -38,18 +55,31 @@ func (s *VerbalQuestionService) Create(ctx context.Context, q *models.VerbalQues
 	return err
 }
 
-func (s *VerbalQuestionService) GetByID(ctx context.Context, id int) (*models.VerbalQuestion, error) {
+func (s *VerbalQuestionService) GetByID(
+	ctx context.Context,
+	id int,
+) (*models.VerbalQuestion, error) {
 	q := &models.VerbalQuestion{}
-	query := squirrel.Select("q.id", "q.competence", "q.framed_as", "q.type", "q.paragraph_id", "COALESCE(p.paragraph_text, '')", "q.question", "q.options", "q.answer", "q.explanation", "q.difficulty").
+	query := squirrel.Select(
+		"q.id",
+		"q.competence",
+		"q.framed_as",
+		"q.type",
+		"q.paragraph",
+		"q.question",
+		"q.options",
+		"q.answer",
+		"q.explanation",
+		"q.difficulty",
+	).
 		From("verbal_questions AS q").
-		LeftJoin("paragraphs AS p ON q.paragraph_id = p.id").
-		Where(squirrel.Eq{"q.id": id}).
 		PlaceholderFormat(squirrel.Dollar)
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
 		return nil, err
 	}
-	err = s.DB.QueryRow(ctx, sqlQuery, args...).Scan(&q.ID, &q.Competence, &q.FramedAs, &q.Type, &q.ParagraphID, &q.ParagraphText, &q.Question, pq.Array(&q.Options), pq.Array(&q.Answer), &q.Explanation, &q.Difficulty)
+	err = s.DB.QueryRow(ctx, sqlQuery, args...).
+		Scan(&q.ID, &q.Competence, &q.FramedAs, &q.Type, &q.Paragraph, &q.Question, pq.Array(&q.Options), pq.Array(&q.Answer), &q.Explanation, &q.Difficulty)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, echo.ErrNotFound
@@ -61,38 +91,60 @@ func (s *VerbalQuestionService) GetByID(ctx context.Context, id int) (*models.Ve
 
 func (s *VerbalQuestionService) Count(ctx context.Context) (int, error) {
 	var count int
-	err := s.DB.QueryRow(ctx, `SELECT COUNT(*) FROM verbal_questions`).Scan(&count)
+	err := s.DB.QueryRow(ctx, `SELECT COUNT(*) FROM verbal_questions`).
+		Scan(&count)
 	if err != nil {
 		return 0, err
 	}
 	return count, nil
 }
 
-func (s *VerbalQuestionService) Random(ctx context.Context, limit int, questionType models.QuestionType, competence models.Competence, framedAs models.FramedAs, difficulty models.Difficulty, excludeIDs []int) ([]models.VerbalQuestion, error) {
+func (s *VerbalQuestionService) Random(
+	ctx context.Context,
+	limit int,
+	questionType models.QuestionType,
+	competence models.Competence,
+	framedAs models.FramedAs,
+	difficulty models.Difficulty,
+	excludeIDs []int,
+) ([]models.VerbalQuestion, error) {
 	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-	query := sb.Select("*").From("verbal_questions")
+	query := sb.Select(
+		"q.id",
+		"q.competence",
+		"q.framed_as",
+		"q.type",
+		"q.paragraph",
+		"q.question",
+		"q.options",
+		"q.answer",
+		"q.explanation",
+		"q.difficulty",
+	).From("verbal_questions AS q")
 	if questionType != 0 {
-		query = query.Where(squirrel.Eq{"type": questionType})
+		query = query.Where(squirrel.Eq{"q.type": questionType})
 	}
 	if competence != 0 {
-		query = query.Where(squirrel.Eq{"competence": competence})
+		query = query.Where(squirrel.Eq{"q.competence": competence})
 	}
 	if framedAs != 0 {
-		query = query.Where(squirrel.Eq{"framed_as": framedAs})
+		query = query.Where(squirrel.Eq{"q.framed_as": framedAs})
 	}
 	if difficulty != 0 {
-		query = query.Where(squirrel.Eq{"difficulty": difficulty})
+		query = query.Where(squirrel.Eq{"q.difficulty": difficulty})
 	}
 	if len(excludeIDs) > 0 {
-		query = query.Where(squirrel.NotEq{"id": excludeIDs})
+		query = query.Where(squirrel.NotEq{"q.id": excludeIDs})
 	}
 	query = query.OrderBy("RANDOM()").Limit(uint64(limit))
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
+		println(err)
 		return nil, err
 	}
 	rows, err := s.DB.Query(ctx, sqlQuery, args...)
 	if err != nil {
+		println(err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -104,13 +156,13 @@ func (s *VerbalQuestionService) Random(ctx context.Context, limit int, questionT
 			&q.Competence,
 			&q.FramedAs,
 			&q.Type,
-			&q.ParagraphID,
+			&q.Paragraph,
 			&q.Question,
-			&q.ParagraphText,
 			pq.Array(&q.Options),
 			pq.Array(&q.Answer),
 			&q.Explanation,
-			&q.Difficulty)
+			&q.Difficulty,
+		)
 		if err != nil {
 			return nil, err
 		}
