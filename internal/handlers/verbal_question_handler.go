@@ -50,8 +50,9 @@ func NewVerbalQuestionHandler(s *services.VerbalQuestionService) *VerbalQuestion
 // @param c An echo.Context instance.
 // @return An error response or a JSON response with the created question data.
 func (h *VerbalQuestionHandler) Create(c echo.Context) error {
-	var q models.VerbalQuestion
+	var q models.VerbalQuestionRequest
 	if err := c.Bind(&q); err != nil {
+		println(err.Error())
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
 	}
 	ctx := c.Request().Context()
@@ -94,6 +95,7 @@ func (h *VerbalQuestionHandler) Get(c echo.Context) error {
 		if err == echo.ErrNotFound {
 			return echo.NewHTTPError(http.StatusNotFound, "Question not found with id "+c.Param("id"))
 		}
+		println(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get question")
 	}
 	return c.JSON(http.StatusOK, q)

@@ -115,11 +115,44 @@ func (q QuestionType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(q.String())
 }
 
-// Unmarshal Json
 func (v *VerbalQuestion) UnmarshalJSON(data []byte) error {
-	var q VerbalQuestion
-	if err := json.Unmarshal(data, &q); err != nil {
+	type Alias VerbalQuestion
+	aux := struct {
+		Paragraph *string `json:"paragraph"`
+		*Alias
+	}{
+		Alias: (*Alias)(v),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+	// If ParagraphText is null in the JSON data, make it null in the VerbalQuestion
+	if aux.Paragraph == nil {
+		v.Paragraph.Valid = false
+	} else {
+		v.Paragraph.Valid = true
+		v.Paragraph.String = *aux.Paragraph
+	}
+	return nil
+}
+
+func (v *VerbalQuestionRequest) UnmarshalJSON(data []byte) error {
+	type Alias VerbalQuestionRequest
+	aux := struct {
+		Paragraph *string `json:"paragraph"`
+		*Alias
+	}{
+		Alias: (*Alias)(v),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	// If ParagraphText is null in the JSON data, make it null in the VerbalQuestion
+	if aux.Paragraph == nil {
+		v.Paragraph.Valid = false
+	} else {
+		v.Paragraph.Valid = true
+		v.Paragraph.String = *aux.Paragraph
 	}
 	return nil
 }
@@ -174,7 +207,7 @@ func (f *FramedAs) UnmarshalJSON(data []byte) error {
 	switch s {
 	case "MCQSingleAnswer":
 		*f = MCQSingleAnswer
-	case "MCQMultipleChoices":
+	case "MCQMultipleChoice":
 		*f = MCQMultipleChoices
 	case "SelectSentence":
 		*f = SelectSentence
@@ -203,60 +236,18 @@ func (q *QuestionType) UnmarshalJSON(data []byte) error {
 }
 
 /**
-*   VerbalQuestion:
-*     type: object
-*     required:
-*       - id
-*       - competence
-*       - framed_as
-*       - type
-*       - question
-*       - options
-*       - answer
-*       - explanation
-*       - difficulty
-*     properties:
-*       id:
-*         type: integer
-*         example: 1
-*       competence:
-*         type: string
-*         enum: ["Analyzing and drawing conclusions", "Reasoning from incomplete data", "Identifying authors assumptions/perspective", "Understanding multiple levels of meaning", "Selecting important info", "Distinguish major/minor points"]
-*         example: "Analyzing and drawing conclusions"
-*       framed_as:
-*         type: string
-*         enum: ["MCQSingleAnswer", "MCQMultipleChoices", "SelectSentence"]
-*         example: "MCQSingleAnswer"
-*       type:
-*         type: string
-*         enum: ["ReadingComprehension", "TextCompletion", "SentenceEquivalence"]
-*         example: "ReadingComprehension"
-*       paragraph_id:
-*         type: integer
-*         example: 1
-*       paragraph_text:
-*         type: string
-*         example: "This is a sample paragraph text."
-*       question:
-*         type: string
-*         example: "What is the main idea of the paragraph?"
-*       options:
-*         type: array
-*         items:
-*           type: string
-*         example: ["Option A", "Option B", "Option C"]
-*       answer:
-*         type: array
-*         items:
-*           type: string
-*         example: ["Option A"]
-*       explanation:
-*         type: string
-*         example: "Option A is correct because..."
-*       difficulty:
-*         type: string
-*         enum: ["Easy", "Medium", "Hard"]
-*         example: "Easy"
+* Model that is used to represent a single option that the
+* user can select
+**/
+type Option struct {
+	Value         string `json:value`
+	Correct       bool   `json:correct`
+	Justification string `json:justification`
+}
+
+/**
+* Model that represents a question in the verbal reading portion
+* of the GRE exam.
 **/
 type VerbalQuestion struct {
 	ID          int            `json:"id"`
@@ -265,10 +256,29 @@ type VerbalQuestion struct {
 	Type        QuestionType   `json:"type"`
 	Paragraph   sql.NullString `json:"paragraph,omitempty"`
 	Question    string         `json:"question"`
-	Options     []string       `json:"options"`
+	Options     []Option       `json:"options"`
 	Answer      []string       `json:"answer"`
 	Explanation string         `json:"explanation"`
 	Difficulty  Difficulty     `json:"difficulty"`
+	Vocabulary  []Word         `json:vocabulary`
+}
+
+/**
+* Represents the Data used by the POST endpoint.
+* Vocabulary is passed as a list of words here.
+**/
+type VerbalQuestionRequest struct {
+	ID          int            `json:"id"`
+	Competence  Competence     `json:"competence"`
+	FramedAs    FramedAs       `json:"framed_as"`
+	Type        QuestionType   `json:"type"`
+	Paragraph   sql.NullString `json:"paragraph,omitempty"`
+	Question    string         `json:"question"`
+	Options     []Option       `json:"options"`
+	Answer      []string       `json:"answer"`
+	Explanation string         `json:"explanation"`
+	Difficulty  Difficulty     `json:"difficulty"`
+	Vocabulary  []string       `json:vocabulary`
 }
 
 type RandomQuestionsRequest struct {

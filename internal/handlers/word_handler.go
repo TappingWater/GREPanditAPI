@@ -51,7 +51,7 @@ func (h *WordHandler) Create(c echo.Context) error {
 	if err := c.Bind(&w); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
 	}
-	if w.Word == "" || len(w.Meanings) == 0 || len(w.Meanings) != len(w.Examples) {
+	if w.Word == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body. Requires meaning, word and examples for each meaning")
 	}
 	err := h.Service.Create(ctx, &w)

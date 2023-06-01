@@ -38,12 +38,10 @@ func main() {
 
 	// Create services
 	verbalQuestionService := services.NewVerbalQuestionService(db)
-	paragraphService := services.NewParagraphService(db)
 	wordService := services.NewWordService(db)
 
 	// Create handlers
 	verbalQuestionHandler := handlers.NewVerbalQuestionHandler(verbalQuestionService)
-	paragraphHandler := handlers.NewParagraphHandler(paragraphService)
 	wordHandler := handlers.NewWordHandler(wordService)
 
 	// Start the Echo server
@@ -53,7 +51,7 @@ func main() {
 	e.Use(middleware.CORS()) // Enable CORS
 
 	// Register routes
-	registerRoutes(e, verbalQuestionHandler, paragraphHandler, wordHandler)
+	registerRoutes(e, verbalQuestionHandler, wordHandler)
 
 	// Start the server
 	port := "8080"
@@ -61,18 +59,13 @@ func main() {
 	e.Start(fmt.Sprintf(":%s", port))
 }
 
-func registerRoutes(e *echo.Echo, verbalQuestionHandler *handlers.VerbalQuestionHandler, paragraphHandler *handlers.ParagraphHandler, wordHandler *handlers.WordHandler) {
+func registerRoutes(e *echo.Echo, verbalQuestionHandler *handlers.VerbalQuestionHandler, wordHandler *handlers.WordHandler) {
 	// VerbalQuestion routes
 	vqGroup := e.Group("/vbquestion")
 	vqGroup.POST("", verbalQuestionHandler.Create)
 	vqGroup.GET("/:id", verbalQuestionHandler.Get)
 	vqGroup.POST("/random", verbalQuestionHandler.GetRandomQuestions)
 	vqGroup.GET("/count", verbalQuestionHandler.Count)
-
-	// Paragraph routes
-	pGroup := e.Group("/paragraph")
-	pGroup.POST("", paragraphHandler.Create)
-	pGroup.GET("/:id", paragraphHandler.Get)
 
 	// Word routes
 	wGroup := e.Group("/word")
