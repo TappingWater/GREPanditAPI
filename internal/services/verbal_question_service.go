@@ -202,25 +202,10 @@ func (s *VerbalQuestionService) Random(
 	difficulty models.Difficulty,
 	excludeIDs []int,
 ) ([]models.VerbalQuestion, error) {
+	// Retrieve 5 random question IDs based on parameters
 	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-	query := sb.Select(
-		"q.id",
-		"q.competence",
-		"q.framed_as",
-		"q.type",
-		"q.paragraph",
-		"q.question",
-		"q.options",
-		"q.answer",
-		"q.explanation",
-		"q.difficulty",
-		"w.id",
-		"w.word",
-		"w.meanings",
-	).
-		From("verbal_questions AS q").
-		LeftJoin("verbal_question_words AS a ON q.id = a.verbal_question_id").
-		LeftJoin("words AS w ON a.word_id = w.id").
+	query := sb.Select("id").
+		From("verbal_questions as q").
 		OrderBy("RANDOM()").
 		Limit(uint64(limit))
 	if questionType != 0 {
@@ -247,13 +232,52 @@ func (s *VerbalQuestionService) Random(
 		return nil, err
 	}
 	defer rows.Close()
-	questionsMap := make(map[int]models.VerbalQuestion)
-	wordsMap := make(map[int][]models.Word)
+	questionIDs := make([]int, 0)
 	for rows.Next() {
+		var id int
+		err := rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		questionIDs = append(questionIDs, id)
+	}
+	// Based on retrieved question ids we can execute another query to get all the
+	// words using the join table and fill up the vocabulary for each question
+	vocabularyQuery := sb.Select(
+		"q.id",
+		"q.competence",
+		"q.framed_as",
+		"q.type",
+		"q.paragraph",
+		"q.question",
+		"q.options",
+		"q.answer",
+		"q.explanation",
+		"q.difficulty",
+		"w.id",
+		"w.word",
+		"w.meanings",
+	).
+		From("verbal_questions AS q").
+		Join("verbal_question_words AS a ON q.id = a.verbal_question_id").
+		Join("words AS w ON a.word_id = w.id").
+		Where(squirrel.Eq{"q.id": questionIDs})
+
+	vocabularySQL, vocabularyArgs, err := vocabularyQuery.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	vocabularyRows, err := s.DB.Query(ctx, vocabularySQL, vocabularyArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer vocabularyRows.Close()
+	questionsMap := make(map[int]models.VerbalQuestion)
+	for vocabularyRows.Next() {
 		var q models.VerbalQuestion
 		var word models.Word
-		var meaningsJson []byte
-		err := rows.Scan(
+		var meaningsJSON []byte
+		err := vocabularyRows.Scan(
 			&q.ID,
 			&q.Competence,
 			&q.FramedAs,
@@ -266,29 +290,22 @@ func (s *VerbalQuestionService) Random(
 			&q.Difficulty,
 			&word.ID,
 			&word.Word,
-			&meaningsJson,
+			&meaningsJSON,
 		)
 		if err != nil {
 			return nil, err
 		}
-		err = json.Unmarshal(meaningsJson, &word.Meanings)
+		err = json.Unmarshal(meaningsJSON, &word.Meanings)
 		if err != nil {
 			return nil, err
 		}
-		// If the question is already in the map, add the word to the word map.
-		// If it's not, add the question to the question map and the word to the word map.
-		if _, ok := questionsMap[q.ID]; ok {
-			wordsMap[q.ID] = append(wordsMap[q.ID], word)
+		if existingQ, ok := questionsMap[q.ID]; ok {
+			existingQ.Vocabulary = append(existingQ.Vocabulary, word)
+			questionsMap[q.ID] = existingQ
 		} else {
 			q.Vocabulary = []models.Word{word}
 			questionsMap[q.ID] = q
-			wordsMap[q.ID] = []models.Word{word}
 		}
-	}
-	// Assign the words from the wordsMap to the vocabulary of the corresponding question in the questionsMap.
-	for id, question := range questionsMap {
-		question.Vocabulary = wordsMap[id]
-		questionsMap[id] = question
 	}
 	questions := make([]models.VerbalQuestion, 0, len(questionsMap))
 	for _, question := range questionsMap {
