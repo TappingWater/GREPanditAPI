@@ -12,3 +12,8 @@ type Word struct {
 	Word     string    `json:"word"`
 	Meanings []Meaning `json:"meanings"`
 }
+
+type WordMap struct {
+	BaseForm  string `json:"base_form"`
+	Variation string `json:"variation"`
+}

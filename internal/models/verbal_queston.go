@@ -13,13 +13,13 @@ type Difficulty int
 
 // ENUM types
 const (
-	Easy Difficulty = iota
+	Easy Difficulty = iota + 1
 	Medium
 	Hard
 )
 
 const (
-	AnalyzingAndDrawingConclusions Competence = iota
+	AnalyzingAndDrawingConclusions Competence = iota + 1
 	ReasoningFromIncompleteData
 	IdentifyingAuthorsAssumptionsPerspective
 	UnderstandingMultipleLevelsOfMeaning
@@ -28,13 +28,13 @@ const (
 )
 
 const (
-	MCQSingleAnswer FramedAs = iota
+	MCQSingleAnswer FramedAs = iota + 1
 	MCQMultipleChoices
 	SelectSentence
 )
 
 const (
-	ReadingComprehension QuestionType = iota
+	ReadingComprehension QuestionType = iota + 1
 	TextCompletion
 	SentenceEquivalence
 )
@@ -240,9 +240,9 @@ func (q *QuestionType) UnmarshalJSON(data []byte) error {
 * user can select
 **/
 type Option struct {
-	Value         string `json:value`
-	Correct       bool   `json:correct`
-	Justification string `json:justification`
+	Value         string `json:"value"`
+	Correct       bool   `json:"correct"`
+	Justification string `json:"justification"`
 }
 
 /**
@@ -250,17 +250,18 @@ type Option struct {
 * of the GRE exam.
 **/
 type VerbalQuestion struct {
-	ID          int            `json:"id"`
-	Competence  Competence     `json:"competence"`
-	FramedAs    FramedAs       `json:"framed_as"`
-	Type        QuestionType   `json:"type"`
-	Paragraph   sql.NullString `json:"paragraph,omitempty"`
-	Question    string         `json:"question"`
-	Options     []Option       `json:"options"`
-	Answer      []string       `json:"answer"`
-	Explanation string         `json:"explanation"`
-	Difficulty  Difficulty     `json:"difficulty"`
-	Vocabulary  []Word         `json:vocabulary`
+	ID           int               `json:"id"`
+	Competence   Competence        `json:"competence"`
+	FramedAs     FramedAs          `json:"framed_as"`
+	Type         QuestionType      `json:"type"`
+	Paragraph    sql.NullString    `json:"paragraph,omitempty"`
+	Question     string            `json:"question"`
+	Options      []Option          `json:"options"`
+	Answer       []string          `json:"answer"`
+	Explanation  string            `json:"explanation"`
+	Difficulty   Difficulty        `json:"difficulty"`
+	Vocabulary   []Word            `json:"vocabulary"`
+	VocabWordMap map[string]string `json:"wordmap"`
 }
 
 /**
@@ -278,12 +279,12 @@ type VerbalQuestionRequest struct {
 	Answer      []string       `json:"answer"`
 	Explanation string         `json:"explanation"`
 	Difficulty  Difficulty     `json:"difficulty"`
-	Vocabulary  []string       `json:vocabulary`
+	Vocabulary  []string       `json:"vocabulary"`
 }
 
 type RandomQuestionsRequest struct {
 	Limit        int          `json:"limit"`
-	QuestionType QuestionType `json:"question_type,omitempty"`
+	QuestionType QuestionType `json:"type,omitempty"`
 	Competence   Competence   `json:"competence,omitempty"`
 	FramedAs     FramedAs     `json:"framed_as,omitempty"`
 	Difficulty   Difficulty   `json:"difficulty,omitempty"`

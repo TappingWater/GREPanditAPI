@@ -3,9 +3,12 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/Masterminds/squirrel"
 
+	"github.com/aaaton/golem/v4"
+	"github.com/aaaton/golem/v4/dicts/en"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -30,6 +33,46 @@ func (s *VerbalQuestionService) Create(
 	ctx context.Context,
 	q *models.VerbalQuestionRequest,
 ) error {
+	// Lemmetize to get base forms of words and find variations
+	lemmatizer, err := golem.New(en.New())
+	if err != nil {
+		return err
+	}
+	// Convert vocab list to base forms
+	vocabBaseForms := make(map[string]string)
+	for _, word := range q.Vocabulary {
+		lemmatized := lemmatizer.Lemma(word)
+		vocabBaseForms[lemmatized] = word
+	}
+	// Find variations in paragraph and options
+	variations := make(map[string]string)
+	// Check paragraph
+	// Split paragraph by whitespaces and periods
+	paragraphWords := strings.FieldsFunc(q.Paragraph.String, func(r rune) bool {
+		return r == ' ' || r == '.' || r == ',' || r == '!' || r == '(' || r == ')'
+	})
+	for _, word := range paragraphWords {
+		lemmatized := lemmatizer.Lemma(word)
+		if _, ok := vocabBaseForms[lemmatized]; ok {
+			variations[word] = lemmatized
+		}
+	}
+	// Iterate over Options
+	for _, option := range q.Options {
+		optionWords := strings.FieldsFunc(option.Value, func(r rune) bool {
+			return r == ' ' || r == '.' || r == ',' || r == '!' || r == '(' || r == ')'
+		})
+		for _, word := range optionWords {
+			lemmatized := lemmatizer.Lemma(word)
+			if _, ok := vocabBaseForms[lemmatized]; ok {
+				variations[word] = lemmatized
+			}
+		}
+	}
+	wordmapJson, err := json.Marshal(variations)
+	if err != nil {
+		return err
+	}
 	// Begin a transaction.
 	tx, err := s.DB.Begin(ctx)
 	if err != nil {
@@ -51,7 +94,8 @@ func (s *VerbalQuestionService) Create(
 			"options",
 			"answer",
 			"explanation",
-			"difficulty").
+			"difficulty",
+			"wordmap").
 		Values(
 			q.Competence,
 			q.FramedAs,
@@ -61,32 +105,29 @@ func (s *VerbalQuestionService) Create(
 			optionsJson,
 			pq.Array(q.Answer),
 			q.Explanation,
-			q.Difficulty).
+			q.Difficulty,
+			wordmapJson).
 		Suffix("RETURNING id").
 		PlaceholderFormat(squirrel.Dollar)
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		println(err)
 		return err
 	}
 	err = tx.QueryRow(ctx, sqlQuery, args...).Scan(&q.ID)
 	if err != nil {
-		println(err)
 		return err
 	}
 	// Now associate the words with the new verbal question.
-	for _, word := range q.Vocabulary {
+	for word := range vocabBaseForms {
 		// Get the ID of the word.
 		var wordID int
 		err = tx.QueryRow(ctx, `SELECT id FROM words WHERE word = $1`, word).Scan(&wordID)
 		if err != nil {
-			println(err)
 			return err
 		}
 		// Create a new record in the verbal_question_words table.
 		_, err = tx.Exec(ctx, `INSERT INTO verbal_question_words (verbal_question_id, word_id) VALUES ($1, $2)`, q.ID, wordID)
 		if err != nil {
-			println(err)
 			return err
 		}
 	}
@@ -114,16 +155,17 @@ func (s *VerbalQuestionService) GetByID(
 		"q.answer",
 		"q.explanation",
 		"q.difficulty",
+		"q.wordmap",
 	).
 		From("verbal_questions AS q").
 		Where(squirrel.Eq{"q.id": id}).
 		PlaceholderFormat(squirrel.Dollar)
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		println(err.Error())
 		return nil, err
 	}
 	var optionsJson []byte
+	var wordMapJson []byte
 	err = s.DB.QueryRow(ctx, sqlQuery, args...).
 		Scan(
 			&q.ID,
@@ -136,15 +178,19 @@ func (s *VerbalQuestionService) GetByID(
 			pq.Array(&q.Answer),
 			&q.Explanation,
 			&q.Difficulty,
+			&wordMapJson,
 		)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			println(err.Error())
 			return nil, echo.ErrNotFound
 		}
 		return nil, err
 	}
 	err = json.Unmarshal(optionsJson, &q.Options)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(wordMapJson, &q.VocabWordMap)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +202,6 @@ func (s *VerbalQuestionService) GetByID(
 		WHERE vqw.verbal_question_id = $1
 	`, id)
 	if err != nil {
-		println(err.Error())
 		return nil, err
 	}
 	defer rows.Close()
@@ -167,7 +212,6 @@ func (s *VerbalQuestionService) GetByID(
 		var word models.Word
 		err = rows.Scan(&word.ID, &word.Word, &meaningsJson)
 		if err != nil {
-			println(err.Error())
 			return nil, err
 		}
 		err = json.Unmarshal(meaningsJson, &word.Meanings)
@@ -254,6 +298,7 @@ func (s *VerbalQuestionService) Random(
 		"q.answer",
 		"q.explanation",
 		"q.difficulty",
+		"q.wordmap",
 		"w.id",
 		"w.word",
 		"w.meanings",
@@ -288,6 +333,7 @@ func (s *VerbalQuestionService) Random(
 			&q.Answer,
 			&q.Explanation,
 			&q.Difficulty,
+			&q.VocabWordMap,
 			&word.ID,
 			&word.Word,
 			&meaningsJSON,

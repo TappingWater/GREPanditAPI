@@ -36,7 +36,8 @@ func Migrate(db *pgxpool.Pool) {
 			answer TEXT[],
 			word TEXT[],
 			explanation TEXT,
-			difficulty INT
+			difficulty INT,
+			wordmap JSONB
 		);
 	`)
 
