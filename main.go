@@ -6,9 +6,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	postgresdb "grepandit.com/api/internal/database"
+
+	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/handlers"
-	"grepandit.com/api/internal/migrations"
 	"grepandit.com/api/internal/services"
 )
 
@@ -29,20 +29,24 @@ import (
 **/
 func main() {
 	// Connect to the database
-	db, err := postgresdb.ConnectDB()
+	db, err := database.ConnectDB()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
-	migrations.Migrate(db)
+	database.Migrate(db)
 
 	// Create services
 	verbalQuestionService := services.NewVerbalQuestionService(db)
 	wordService := services.NewWordService(db)
+	userService := services.NewUserService(db)
+	userVerbalStatsService := services.NewUserVerbalStatsService(db)
 
 	// Create handlers
 	verbalQuestionHandler := handlers.NewVerbalQuestionHandler(verbalQuestionService)
 	wordHandler := handlers.NewWordHandler(wordService)
+	userHandler := handlers.NewUserHandler(userService)
+	userVerbalStatsHandler := handlers.NewUserVerbalStatHandler(userVerbalStatsService)
 
 	// Start the Echo server
 	e := echo.New()
@@ -51,7 +55,7 @@ func main() {
 	e.Use(middleware.CORS()) // Enable CORS
 
 	// Register routes
-	registerRoutes(e, verbalQuestionHandler, wordHandler)
+	registerRoutes(e, verbalQuestionHandler, wordHandler, userHandler, userVerbalStatsHandler)
 
 	// Start the server
 	port := "8080"
@@ -59,7 +63,11 @@ func main() {
 	e.Start(fmt.Sprintf(":%s", port))
 }
 
-func registerRoutes(e *echo.Echo, verbalQuestionHandler *handlers.VerbalQuestionHandler, wordHandler *handlers.WordHandler) {
+func registerRoutes(e *echo.Echo,
+	verbalQuestionHandler *handlers.VerbalQuestionHandler,
+	wordHandler *handlers.WordHandler,
+	userHandler *handlers.UserHandler,
+	userVerbalStatHandler *handlers.UserVerbalStatHandler) {
 	// VerbalQuestion routes
 	vqGroup := e.Group("/vbquestion")
 	vqGroup.POST("", verbalQuestionHandler.Create)
@@ -72,4 +80,18 @@ func registerRoutes(e *echo.Echo, verbalQuestionHandler *handlers.VerbalQuestion
 	wGroup.POST("", wordHandler.Create)
 	wGroup.GET("/:id", wordHandler.GetByID)
 	wGroup.GET("/word/:word", wordHandler.GetByWord)
+
+	// User routes
+	uGroup := e.Group("/user")
+	uGroup.POST("", userHandler.Create)
+	uGroup.GET("/:id", userHandler.GetByID)
+	uGroup.GET("/email/:email", userHandler.GetByEmail)
+	uGroup.GET("/token/:token", userHandler.GetByUserToken)
+
+	// UserVerbalStat routes
+	uvsGroup := e.Group("/user-verbal-stats")
+	uvsGroup.POST("", userVerbalStatHandler.Create)
+	uvsGroup.GET("/marked-words", userVerbalStatHandler.GetMarkedWordsByUserToken)
+	uvsGroup.GET("/marked-questions", userVerbalStatHandler.GetMarkedVerbalQuestionsByUserToken)
+	uvsGroup.GET("", userVerbalStatHandler.GetVerbalStatsByUserToken)
 }

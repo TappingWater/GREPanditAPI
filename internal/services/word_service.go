@@ -9,6 +9,7 @@ import (
 	"github.com/aaaton/golem/v4/dicts/en"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
+	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/models"
 )
 
@@ -21,7 +22,7 @@ func NewWordService(db *pgxpool.Pool) *WordService {
 }
 
 func (s *WordService) Create(ctx context.Context, w *models.Word) error {
-	// Lemmetize to get base forms of words and find variations
+	// Lemmatize to get base forms of words and find variations
 	lemmatizer, err := golem.New(en.New())
 	if err != nil {
 		println(err)
@@ -32,13 +33,13 @@ func (s *WordService) Create(ctx context.Context, w *models.Word) error {
 	if err != nil {
 		return err
 	}
-	query := `INSERT INTO words (word, meanings) VALUES ($1, $2) RETURNING id`
+	query := "INSERT INTO " + database.WordsTable + " (" + database.WordsWordField + ", " + database.WordsMeaningsField + ") VALUES ($1, $2) RETURNING " + database.WordsIDField
 	return s.DB.QueryRow(ctx, query, baseForm, meaningsJson).Scan(&w.ID)
 }
 
 func (s *WordService) GetByID(ctx context.Context, id int) (*models.Word, error) {
 	w := &models.Word{}
-	query := `SELECT * FROM words WHERE id = $1`
+	query := "SELECT * FROM " + database.WordsTable + " WHERE " + database.WordsIDField + " = $1"
 	var meaningsJson []byte
 	err := s.DB.QueryRow(ctx, query, id).Scan(&w.ID, &w.Word, &meaningsJson)
 	if err != nil {
@@ -55,7 +56,7 @@ func (s *WordService) GetByID(ctx context.Context, id int) (*models.Word, error)
 }
 
 func (s *WordService) GetByWord(ctx context.Context, word string) (*models.Word, error) {
-	// Lemmetize to get base forms of words and find variations
+	// Lemmatize to get base forms of words and find variations
 	lemmatizer, err := golem.New(en.New())
 	if err != nil {
 		println(err)
@@ -63,7 +64,7 @@ func (s *WordService) GetByWord(ctx context.Context, word string) (*models.Word,
 	}
 	baseForm := lemmatizer.Lemma(word)
 	w := &models.Word{}
-	query := `SELECT * FROM words WHERE word = $1`
+	query := "SELECT * FROM " + database.WordsTable + " WHERE " + database.WordsWordField + " = $1"
 	var meaningsJson []byte
 	err = s.DB.QueryRow(ctx, query, baseForm).Scan(&w.ID, &w.Word, &meaningsJson)
 	if err != nil {

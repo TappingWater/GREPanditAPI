@@ -1,3 +1,4 @@
+// services/verbal_question_service.go
 package services
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/lib/pq"
+	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/models"
 )
 
@@ -84,18 +86,18 @@ func (s *VerbalQuestionService) Create(
 	if err != nil {
 		return err
 	}
-	query := squirrel.Insert("verbal_questions").
+	query := squirrel.Insert(database.VerbalQuestionsTable).
 		Columns(
-			"competence",
-			"framed_as",
-			"type",
-			"paragraph",
-			"question",
-			"options",
-			"answer",
-			"explanation",
-			"difficulty",
-			"wordmap").
+			database.VerbalQuestionsCompetenceField,
+			database.VerbalQuestionsFramedAsField,
+			database.VerbalQuestionsTypeField,
+			database.VerbalQuestionsParagraphField,
+			database.VerbalQuestionsQuestionField,
+			database.VerbalQuestionsOptionsField,
+			database.VerbalQuestionsAnswerField,
+			database.VerbalQuestionsExplanationField,
+			database.VerbalQuestionsDifficultyField,
+			database.VerbalQuestionsWordmapField).
 		Values(
 			q.Competence,
 			q.FramedAs,
@@ -107,7 +109,7 @@ func (s *VerbalQuestionService) Create(
 			q.Explanation,
 			q.Difficulty,
 			wordmapJson).
-		Suffix("RETURNING id").
+		Suffix("RETURNING " + database.VerbalQuestionsIDField).
 		PlaceholderFormat(squirrel.Dollar)
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -121,12 +123,12 @@ func (s *VerbalQuestionService) Create(
 	for word := range vocabBaseForms {
 		// Get the ID of the word.
 		var wordID int
-		err = tx.QueryRow(ctx, `SELECT id FROM words WHERE word = $1`, word).Scan(&wordID)
+		err = tx.QueryRow(ctx, "SELECT "+database.WordsIDField+" FROM "+database.WordsTable+" WHERE "+database.WordsWordField+" = $1", word).Scan(&wordID)
 		if err != nil {
 			return err
 		}
 		// Create a new record in the verbal_question_words table.
-		_, err = tx.Exec(ctx, `INSERT INTO verbal_question_words (verbal_question_id, word_id) VALUES ($1, $2)`, q.ID, wordID)
+		_, err = tx.Exec(ctx, "INSERT INTO "+database.VerbalQuestionWordsJoinTable+" ("+database.VerbalQuestionWordJoinVerbalField+", "+database.VerbalQuestionWordJoinWordField+") VALUES ($1, $2)", q.ID, wordID)
 		if err != nil {
 			return err
 		}
@@ -145,20 +147,20 @@ func (s *VerbalQuestionService) GetByID(
 ) (*models.VerbalQuestion, error) {
 	q := &models.VerbalQuestion{}
 	query := squirrel.Select(
-		"q.id",
-		"q.competence",
-		"q.framed_as",
-		"q.type",
-		"q.paragraph",
-		"q.question",
-		"q.options",
-		"q.answer",
-		"q.explanation",
-		"q.difficulty",
-		"q.wordmap",
+		database.VerbalQuestionsIDField,
+		database.VerbalQuestionsCompetenceField,
+		database.VerbalQuestionsFramedAsField,
+		database.VerbalQuestionsTypeField,
+		database.VerbalQuestionsParagraphField,
+		database.VerbalQuestionsQuestionField,
+		database.VerbalQuestionsOptionsField,
+		database.VerbalQuestionsAnswerField,
+		database.VerbalQuestionsExplanationField,
+		database.VerbalQuestionsDifficultyField,
+		database.VerbalQuestionsWordmapField,
 	).
-		From("verbal_questions AS q").
-		Where(squirrel.Eq{"q.id": id}).
+		From(database.VerbalQuestionsTable).
+		Where(squirrel.Eq{database.VerbalQuestionsIDField: id}).
 		PlaceholderFormat(squirrel.Dollar)
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -196,10 +198,10 @@ func (s *VerbalQuestionService) GetByID(
 	}
 	// Now get the vocabulary words.
 	rows, err := s.DB.Query(ctx, `
-		SELECT w.id, w.word, w.meanings
-		FROM words AS w
-		INNER JOIN verbal_question_words AS vqw ON w.id = vqw.word_id
-		WHERE vqw.verbal_question_id = $1
+		SELECT w.`+database.WordsIDField+`, w.`+database.WordsWordField+`, w.`+database.WordsMeaningsField+`
+		FROM `+database.WordsTable+` AS w
+		INNER JOIN `+database.VerbalQuestionWordsJoinTable+` AS vqw ON w.`+database.WordsIDField+` = vqw.`+database.VerbalQuestionWordJoinWordField+`
+		WHERE vqw.`+database.VerbalQuestionWordJoinVerbalField+` = $1
 	`, id)
 	if err != nil {
 		return nil, err
@@ -225,7 +227,7 @@ func (s *VerbalQuestionService) GetByID(
 
 func (s *VerbalQuestionService) Count(ctx context.Context) (int, error) {
 	var count int
-	err := s.DB.QueryRow(ctx, `SELECT COUNT(*) FROM verbal_questions`).
+	err := s.DB.QueryRow(ctx, "SELECT COUNT(*) FROM "+database.VerbalQuestionsTable).
 		Scan(&count)
 	if err != nil {
 		return 0, err
@@ -248,24 +250,24 @@ func (s *VerbalQuestionService) Random(
 ) ([]models.VerbalQuestion, error) {
 	// Retrieve 5 random question IDs based on parameters
 	sb := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-	query := sb.Select("id").
-		From("verbal_questions as q").
+	query := sb.Select(database.VerbalQuestionsIDField).
+		From(database.VerbalQuestionsTable + " as q").
 		OrderBy("RANDOM()").
 		Limit(uint64(limit))
 	if questionType != 0 {
-		query = query.Where(squirrel.Eq{"q.type": questionType})
+		query = query.Where(squirrel.Eq{database.VerbalQuestionsTypeField: questionType})
 	}
 	if competence != 0 {
-		query = query.Where(squirrel.Eq{"q.competence": competence})
+		query = query.Where(squirrel.Eq{database.VerbalQuestionsCompetenceField: competence})
 	}
 	if framedAs != 0 {
-		query = query.Where(squirrel.Eq{"q.framed_as": framedAs})
+		query = query.Where(squirrel.Eq{database.VerbalQuestionsFramedAsField: framedAs})
 	}
 	if difficulty != 0 {
-		query = query.Where(squirrel.Eq{"q.difficulty": difficulty})
+		query = query.Where(squirrel.Eq{database.VerbalQuestionsDifficultyField: difficulty})
 	}
 	if len(excludeIDs) > 0 {
-		query = query.Where(squirrel.NotEq{"q.id": excludeIDs})
+		query = query.Where(squirrel.NotEq{database.VerbalQuestionsIDField: excludeIDs})
 	}
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -288,25 +290,25 @@ func (s *VerbalQuestionService) Random(
 	// Based on retrieved question ids we can execute another query to get all the
 	// words using the join table and fill up the vocabulary for each question
 	vocabularyQuery := sb.Select(
-		"q.id",
-		"q.competence",
-		"q.framed_as",
-		"q.type",
-		"q.paragraph",
-		"q.question",
-		"q.options",
-		"q.answer",
-		"q.explanation",
-		"q.difficulty",
-		"q.wordmap",
-		"w.id",
-		"w.word",
-		"w.meanings",
+		"q."+database.VerbalQuestionsIDField,
+		"q."+database.VerbalQuestionsCompetenceField,
+		"q."+database.VerbalQuestionsFramedAsField,
+		"q."+database.VerbalQuestionsTypeField,
+		"q."+database.VerbalQuestionsParagraphField,
+		"q."+database.VerbalQuestionsQuestionField,
+		"q."+database.VerbalQuestionsOptionsField,
+		"q."+database.VerbalQuestionsAnswerField,
+		"q."+database.VerbalQuestionsExplanationField,
+		"q."+database.VerbalQuestionsDifficultyField,
+		"q."+database.VerbalQuestionsWordmapField,
+		"w."+database.WordsIDField,
+		"w."+database.WordsWordField,
+		"w."+database.WordsMeaningsField,
 	).
-		From("verbal_questions AS q").
-		Join("verbal_question_words AS a ON q.id = a.verbal_question_id").
-		Join("words AS w ON a.word_id = w.id").
-		Where(squirrel.Eq{"q.id": questionIDs})
+		From(database.VerbalQuestionsTable + " AS q").
+		Join(database.VerbalQuestionWordsJoinTable + " AS a ON q." + database.VerbalQuestionsIDField + " = a." + database.VerbalQuestionWordJoinVerbalField).
+		Join(database.WordsTable + " AS w ON a." + database.VerbalQuestionWordJoinWordField + " = w." + database.WordsIDField).
+		Where(squirrel.Eq{"q." + database.VerbalQuestionsIDField: questionIDs})
 
 	vocabularySQL, vocabularyArgs, err := vocabularyQuery.ToSql()
 	if err != nil {
