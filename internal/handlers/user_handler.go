@@ -197,3 +197,111 @@ func (h *UserHandler) GetByUserToken(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, u)
 }
+
+// GetMarkedWordsByUserToken retrieves all marked words for a user token from the database.
+//
+// Example Request:
+// GET /user-verbal-stats/marked-words?userToken=abc123
+//
+// Example Response:
+// HTTP/1.1 200 OK
+// Content-Type: application/json
+//
+//	[
+//	    {
+//	        "id": 1,
+//	        "userToken": "abc123",
+//	        "wordID": 1
+//	    },
+//	    {
+//	        "id": 2,
+//	        "userToken": "abc123",
+//	        "wordID": 2
+//	    }
+//	]
+//
+// @param c An echo.Context instance.
+// @return An error response or a JSON response with the marked words data.
+func (h *UserHandler) GetMarkedWordsByUserToken(c echo.Context) error {
+	ctx := c.Request().Context()
+	userToken := c.QueryParam("userToken")
+	markedWords, err := h.Service.GetMarkedWordsByUserToken(ctx, userToken)
+	if err != nil {
+		fmt.Println(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get marked words")
+	}
+	return c.JSON(http.StatusOK, markedWords)
+}
+
+// GetMarkedVerbalQuestionsByUserToken retrieves all marked verbal questions for a user token from the database.
+//
+// Example Request:
+// GET /user-verbal-stats/marked-questions?userToken=abc123
+//
+// Example Response:
+// HTTP/1.1 200 OK
+// Content-Type: application/json
+//
+//	[
+//	    {
+//	        "id": 1,
+//	        "userToken": "abc123",
+//	        "verbalQuestionID": 1
+//	    },
+//	    {
+//	        "id": 2,
+//	        "userToken": "abc123",
+//	        "verbalQuestionID": 2
+//	    }
+//	]
+//
+// @param c An echo.Context instance.
+// @return An error response or a JSON response with the marked verbal questions data.
+func (h *UserHandler) GetMarkedVerbalQuestionsByUserToken(c echo.Context) error {
+	ctx := c.Request().Context()
+	userToken := c.QueryParam("userToken")
+	markedQuestions, err := h.Service.GetMarkedVerbalQuestionsByUserToken(ctx, userToken)
+	if err != nil {
+		fmt.Println(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get marked verbal questions")
+	}
+	return c.JSON(http.StatusOK, markedQuestions)
+}
+
+// AddMarkedWords adds marked words for a user to the database.
+func (h *UserHandler) AddMarkedWords(c echo.Context) error {
+	ctx := c.Request().Context()
+	// Parse the request body into a marked words model
+	var requestBody struct {
+		UserToken string `json:"userToken"`
+		WordIDs   []int  `json:"wordIDs"`
+	}
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
+	}
+	// Call the service method to add the marked words
+	err := h.Service.AddMarkedWords(ctx, requestBody.UserToken, requestBody.WordIDs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to add marked words")
+	}
+	return c.JSON(http.StatusCreated, requestBody)
+}
+
+// AddMarkedQuestions adds marked questions for a user to the database.
+func (h *UserHandler) AddMarkedQuestions(c echo.Context) error {
+	ctx := c.Request().Context()
+	// Parse the request body into a marked questions model
+	var requestBody struct {
+		UserToken   string `json:"userToken"`
+		QuestionIDs []int  `json:"questionIDs"`
+	}
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
+	}
+	// Call the service method to add the marked questions
+	err := h.Service.AddMarkedQuestions(ctx, requestBody.UserToken, requestBody.QuestionIDs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to add marked questions")
+	}
+	return c.JSON(http.StatusCreated, requestBody)
+}

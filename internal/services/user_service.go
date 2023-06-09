@@ -86,6 +86,95 @@ func (s *UserService) GetByUserToken(ctx context.Context, userToken string) (*mo
 		}
 		return nil, err
 	}
-
 	return u, nil
+}
+
+// AddMarkedWords adds marked words for a user to the database.
+func (s *UserService) AddMarkedWords(ctx context.Context, userToken string, wordIDs []int) error {
+	// Create slice of user tokens for batch insert.
+	userTokens := make([]string, len(wordIDs))
+	for i := range userTokens {
+		userTokens[i] = userToken
+	}
+
+	query := `
+		INSERT INTO ` + database.UserMarkedWordsTable + ` (` +
+		database.UserMarkedWordsUserField + `, ` +
+		database.UserMarkedWordsWordField + `)
+		SELECT * FROM UNNEST($1::TEXT[], $2::INT[])
+		ON CONFLICT (` + database.UserMarkedWordsUserField + `, ` +
+		database.UserMarkedWordsWordField + `) DO NOTHING`
+
+	_, err := s.DB.Exec(ctx, query, userTokens, wordIDs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// AddMarkedQuestions adds marked questions for a user to the database.
+func (s *UserService) AddMarkedQuestions(ctx context.Context, userToken string, questionIDs []int) error {
+	// Create slice of user tokens for batch insert.
+	userTokens := make([]string, len(questionIDs))
+	for i := range userTokens {
+		userTokens[i] = userToken
+	}
+
+	query := `
+		INSERT INTO ` + database.UserMarkedVerbalQuestionsTable + ` (` +
+		database.UserMarkedVerbalQuestionsUserField + `, ` +
+		database.UserMarkedVerbalQuestionsQuestionField + `)
+		SELECT * FROM UNNEST($1::TEXT[], $2::INT[])
+		ON CONFLICT (` + database.UserMarkedVerbalQuestionsUserField + `, ` +
+		database.UserMarkedVerbalQuestionsQuestionField + `) DO NOTHING`
+
+	_, err := s.DB.Exec(ctx, query, userTokens, questionIDs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *UserService) GetMarkedWordsByUserToken(ctx context.Context, userToken string) ([]models.UserMarkedWord, error) {
+	query := `
+		SELECT * FROM ` + database.UserMarkedWordsTable + `
+		WHERE ` + database.UserMarkedWordsUserField + ` = $1`
+	rows, err := s.DB.Query(ctx, query, userToken)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	markedWords := make([]models.UserMarkedWord, 0)
+	for rows.Next() {
+		var markedWord models.UserMarkedWord
+		err := rows.Scan(&markedWord.ID, &markedWord.UserToken, &markedWord.WordID)
+		if err != nil {
+			return nil, err
+		}
+		markedWords = append(markedWords, markedWord)
+	}
+	return markedWords, nil
+}
+
+func (s *UserService) GetMarkedVerbalQuestionsByUserToken(ctx context.Context, userToken string) ([]models.UserMarkedVerbalQuestion, error) {
+	query := `
+		SELECT * FROM ` + database.UserMarkedVerbalQuestionsTable + `
+		WHERE ` + database.UserMarkedVerbalQuestionsUserField + ` = $1`
+	rows, err := s.DB.Query(ctx, query, userToken)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	markedQuestions := make([]models.UserMarkedVerbalQuestion, 0)
+	for rows.Next() {
+		var markedQuestion models.UserMarkedVerbalQuestion
+		err := rows.Scan(&markedQuestion.ID, &markedQuestion.UserToken, &markedQuestion.VerbalQuestionID)
+		if err != nil {
+			return nil, err
+		}
+		markedQuestions = append(markedQuestions, markedQuestion)
+	}
+	return markedQuestions, nil
 }

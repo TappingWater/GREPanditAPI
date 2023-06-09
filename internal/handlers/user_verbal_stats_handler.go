@@ -55,82 +55,12 @@ func (h *UserVerbalStatHandler) Create(c echo.Context) error {
 	if stat.UserToken == "" || stat.QuestionID == 0 || len(stat.Answers) == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body. Requires userToken, questionID, correct, answers, and date")
 	}
-	err := h.Service.Create(ctx, &stat, nil) // Pass nil for wordIDs as it is not used in this handler
+	err := h.Service.Create(ctx, &stat, "AAAV") // Pass nil for wordIDs as it is not used in this handler
 	if err != nil {
 		fmt.Println(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create user verbal stat")
 	}
 	return c.JSON(http.StatusCreated, stat)
-}
-
-// GetMarkedWordsByUserToken retrieves all marked words for a user token from the database.
-//
-// Example Request:
-// GET /user-verbal-stats/marked-words?userToken=abc123
-//
-// Example Response:
-// HTTP/1.1 200 OK
-// Content-Type: application/json
-//
-//	[
-//	    {
-//	        "id": 1,
-//	        "userToken": "abc123",
-//	        "wordID": 1
-//	    },
-//	    {
-//	        "id": 2,
-//	        "userToken": "abc123",
-//	        "wordID": 2
-//	    }
-//	]
-//
-// @param c An echo.Context instance.
-// @return An error response or a JSON response with the marked words data.
-func (h *UserVerbalStatHandler) GetMarkedWordsByUserToken(c echo.Context) error {
-	ctx := c.Request().Context()
-	userToken := c.QueryParam("userToken")
-	markedWords, err := h.Service.GetMarkedWordsByUserToken(ctx, userToken)
-	if err != nil {
-		fmt.Println(err.Error())
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get marked words")
-	}
-	return c.JSON(http.StatusOK, markedWords)
-}
-
-// GetMarkedVerbalQuestionsByUserToken retrieves all marked verbal questions for a user token from the database.
-//
-// Example Request:
-// GET /user-verbal-stats/marked-questions?userToken=abc123
-//
-// Example Response:
-// HTTP/1.1 200 OK
-// Content-Type: application/json
-//
-//	[
-//	    {
-//	        "id": 1,
-//	        "userToken": "abc123",
-//	        "verbalQuestionID": 1
-//	    },
-//	    {
-//	        "id": 2,
-//	        "userToken": "abc123",
-//	        "verbalQuestionID": 2
-//	    }
-//	]
-//
-// @param c An echo.Context instance.
-// @return An error response or a JSON response with the marked verbal questions data.
-func (h *UserVerbalStatHandler) GetMarkedVerbalQuestionsByUserToken(c echo.Context) error {
-	ctx := c.Request().Context()
-	userToken := c.QueryParam("userToken")
-	markedQuestions, err := h.Service.GetMarkedVerbalQuestionsByUserToken(ctx, userToken)
-	if err != nil {
-		fmt.Println(err.Error())
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get marked verbal questions")
-	}
-	return c.JSON(http.StatusOK, markedQuestions)
 }
 
 // GetVerbalStatsByUserToken retrieves all verbal stats for a user token from the database.

@@ -91,8 +91,8 @@ func Migrate(db *pgxpool.Pool) {
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+UserVerbalStatsJoinTable+` (
 			`+UserVerbalStatsJoinVerbalField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
-			`+UserVerbalStatsJoinWordField+` INT REFERENCES `+WordsTable+`(`+WordsIDField+`),
-			PRIMARY KEY (`+UserVerbalStatsJoinVerbalField+`, `+UserVerbalStatsJoinWordField+`)
+			`+UserVerbalStatsJoinUserField+` TEXT REFERENCES `+UsersTable+`(`+UserTokenField+`),
+			PRIMARY KEY (`+UserVerbalStatsJoinVerbalField+`, `+UserVerbalStatsJoinUserField+`)
 		);
 	`)
 
@@ -105,7 +105,8 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE TABLE IF NOT EXISTS `+UserMarkedWordsTable+` (
 			`+UserMarkedWordsIDField+` SERIAL PRIMARY KEY,
 			`+UserMarkedWordsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
-			`+UserMarkedWordsWordField+` INT NOT NULL REFERENCES `+WordsTable+`(`+WordsIDField+`)
+			`+UserMarkedWordsWordField+` INT NOT NULL REFERENCES `+WordsTable+`(`+WordsIDField+`),
+			UNIQUE (`+UserMarkedWordsUserField+`, `+UserMarkedWordsWordField+`)
 		);
 	`)
 
@@ -118,7 +119,8 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE TABLE IF NOT EXISTS `+UserMarkedVerbalQuestionsTable+` (
 			`+UserMarkedVerbalQuestionsIDField+` SERIAL PRIMARY KEY,
 			`+UserMarkedVerbalQuestionsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
-			`+UserMarkedVerbalQuestionsQuestionField+` INT
+			`+UserMarkedVerbalQuestionsQuestionField+` INT,
+			UNIQUE (`+UserMarkedVerbalQuestionsUserField+`, `+UserMarkedVerbalQuestionsQuestionField+`)
 		);
 	`)
 
@@ -133,7 +135,7 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE INDEX IF NOT EXISTS idx_framed_as ON `+VerbalQuestionsTable+`(`+VerbalQuestionsFramedAsField+`);
 		CREATE INDEX IF NOT EXISTS idx_type ON `+VerbalQuestionsTable+`(`+VerbalQuestionsTypeField+`);
 		CREATE INDEX IF NOT EXISTS idx_user_token_users ON `+UsersTable+`(`+UserTokenField+`);
-		CREATE INDEX IF NOT EXISTS idx_user_token_user_verbal_stats ON `+UserVerbalStatsJoinTable+`(`+VerbalStatsUserField+`);
+		CREATE INDEX IF NOT EXISTS idx_user_token_user_verbal_stats ON `+UserVerbalStatsJoinTable+`(`+UserVerbalStatsJoinUserField+`);
 		CREATE INDEX IF NOT EXISTS idx_user_token_user_marked_words ON `+UserMarkedWordsTable+`(`+UserMarkedWordsUserField+`);
 		CREATE INDEX IF NOT EXISTS idx_user_token_user_marked_verbal_questions ON `+UserMarkedVerbalQuestionsTable+`(`+UserMarkedVerbalQuestionsUserField+`);
 	`)

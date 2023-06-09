@@ -69,29 +69,31 @@ func registerRoutes(e *echo.Echo,
 	userHandler *handlers.UserHandler,
 	userVerbalStatHandler *handlers.UserVerbalStatHandler) {
 	// VerbalQuestion routes
-	vqGroup := e.Group("/vbquestion")
+	vqGroup := e.Group("/vbquestions")
 	vqGroup.POST("", verbalQuestionHandler.Create)
 	vqGroup.GET("/:id", verbalQuestionHandler.Get)
 	vqGroup.POST("/random", verbalQuestionHandler.GetRandomQuestions)
 	vqGroup.GET("/count", verbalQuestionHandler.Count)
 
 	// Word routes
-	wGroup := e.Group("/word")
+	wGroup := e.Group("/words")
 	wGroup.POST("", wordHandler.Create)
 	wGroup.GET("/:id", wordHandler.GetByID)
 	wGroup.GET("/word/:word", wordHandler.GetByWord)
 
 	// User routes
-	uGroup := e.Group("/user")
+	uGroup := e.Group("/users")
 	uGroup.POST("", userHandler.Create)
 	uGroup.GET("/:id", userHandler.GetByID)
-	uGroup.GET("/email/:email", userHandler.GetByEmail)
-	uGroup.GET("/token/:token", userHandler.GetByUserToken)
+	uGroup.GET("/email", userHandler.GetByEmail)
+	uGroup.GET("/token", userHandler.GetByUserToken)
+	uGroup.POST("/marked-words", userHandler.AddMarkedWords)
+	uGroup.POST("/marked-questions", userHandler.AddMarkedQuestions)
+	uGroup.GET("/marked-words", userHandler.GetMarkedWordsByUserToken)
+	uGroup.GET("/marked-questions", userHandler.GetMarkedVerbalQuestionsByUserToken)
 
 	// UserVerbalStat routes
-	uvsGroup := e.Group("/user-verbal-stats")
+	uvsGroup := e.Group("/verbal-stats")
 	uvsGroup.POST("", userVerbalStatHandler.Create)
-	uvsGroup.GET("/marked-words", userVerbalStatHandler.GetMarkedWordsByUserToken)
-	uvsGroup.GET("/marked-questions", userVerbalStatHandler.GetMarkedVerbalQuestionsByUserToken)
 	uvsGroup.GET("", userVerbalStatHandler.GetVerbalStatsByUserToken)
 }
