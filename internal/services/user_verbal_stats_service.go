@@ -36,7 +36,7 @@ func (s *UserVerbalStatsService) Create(ctx context.Context, stat *models.UserVe
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING ` + database.VerbalStatsIDField
 
-	err = tx.QueryRow(ctx, query, stat.UserToken, stat.QuestionID, stat.Correct, stat.Answers, time.Now()).Scan(&stat.ID)
+	err = tx.QueryRow(ctx, query, userToken, stat.QuestionID, stat.Correct, stat.Answers, time.Now()).Scan(&stat.ID)
 	if err != nil {
 		return err
 	}

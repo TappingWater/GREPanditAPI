@@ -60,6 +60,7 @@ const (
 
 // User Verbal Stats Join table field names
 const (
+	UserVerbalStatsJoinIDField     = "id"
 	UserVerbalStatsJoinVerbalField = "stats_id"
 	UserVerbalStatsJoinUserField   = "user_token"
 )

@@ -17,45 +17,24 @@ func NewUserVerbalStatHandler(s *services.UserVerbalStatsService) *UserVerbalSta
 	return &UserVerbalStatHandler{Service: s}
 }
 
-// Create adds a new user verbal stat to the database with the given data.
-//
-// Example Request:
-// POST /user-verbal-stats
-// Content-Type: application/json
-//
-//	{
-//	    "userToken": "abc123",
-//	    "questionID": 1,
-//	    "correct": true,
-//	    "answers": ["option1", "option2"],
-//	    "date": "2023-06-09"
-//	}
-//
-// Example Response:
-// HTTP/1.1 201 Created
-// Content-Type: application/json
-//
-//	{
-//	    "id": 1,
-//	    "userToken": "abc123",
-//	    "questionID": 1,
-//	    "correct": true,
-//	    "answers": ["option1", "option2"],
-//	    "date": "2023-06-09"
-//	}
-//
-// @param c An echo.Context instance.
-// @return An error response or a JSON response with the created user verbal stat data.
+/**
+* Used to create a datapoint that represents the performance of a user
+* for a particular question at a particular time in a many to many table.
+**/
 func (h *UserVerbalStatHandler) Create(c echo.Context) error {
 	ctx := c.Request().Context()
+	u, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
 	var stat models.UserVerbalStat
 	if err := c.Bind(&stat); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
 	}
-	if stat.UserToken == "" || stat.QuestionID == 0 || len(stat.Answers) == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body. Requires userToken, questionID, correct, answers, and date")
+	if stat.QuestionID <= 0 || len(stat.Answers) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body. Requires questionID, correct, answers, and date")
 	}
-	err := h.Service.Create(ctx, &stat, "AAAV") // Pass nil for wordIDs as it is not used in this handler
+	err = h.Service.Create(ctx, &stat, u.Token)
 	if err != nil {
 		fmt.Println(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create user verbal stat")
@@ -63,40 +42,17 @@ func (h *UserVerbalStatHandler) Create(c echo.Context) error {
 	return c.JSON(http.StatusCreated, stat)
 }
 
-// GetVerbalStatsByUserToken retrieves all verbal stats for a user token from the database.
-//
-// Example Request:
-// GET /user-verbal-stats?userToken=abc123
-//
-// Example Response:
-// HTTP/1.1 200 OK
-// Content-Type: application/json
-//
-//	[
-//	    {
-//	        "id": 1,
-//	        "userToken": "abc123",
-//	        "questionID": 1,
-//	        "correct": true,
-//	        "answers": ["option1", "option2"],
-//	        "date": "2023-06-09"
-//	    },
-//	    {
-//	        "id": 2,
-//	        "userToken": "abc123",
-//	        "questionID": 2,
-//	        "correct": false,
-//	        "answers": ["option1"],
-//	        "date": "2023-06-10"
-//	    }
-//	]
-//
-// @param c An echo.Context instance.
-// @return An error response or a JSON response with the verbal stats data.
+/**
+* Function that is used to get the verbal stats for a particular user
+* token
+**/
 func (h *UserVerbalStatHandler) GetVerbalStatsByUserToken(c echo.Context) error {
 	ctx := c.Request().Context()
-	userToken := c.QueryParam("userToken")
-	verbalStats, err := h.Service.GetVerbalStatsByUserToken(ctx, userToken)
+	u, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
+	verbalStats, err := h.Service.GetVerbalStatsByUserToken(ctx, u.Token)
 	if err != nil {
 		fmt.Println(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get verbal stats")

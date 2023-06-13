@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/lestrrat-go/jwx/jwk"
 
 	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/handlers"
+	customMiddleware "grepandit.com/api/internal/middleware"
 	"grepandit.com/api/internal/services"
 )
 
@@ -36,6 +40,15 @@ func main() {
 	defer db.Close()
 	database.Migrate(db)
 
+	autoRefresh := jwk.NewAutoRefresh(context.Background())
+	// Configure the AutoRefresh  to refresh every 15 minutes
+	jwksURL := "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_twk93JaQC/.well-known/jwks.json"
+	autoRefresh.Configure(jwksURL, jwk.WithMinRefreshInterval(15*time.Minute))
+	set, err := autoRefresh.Fetch(context.Background(), jwksURL)
+	if err != nil {
+		log.Fatalf("Failed to fetch JWK set: %v", err)
+	}
+
 	// Create services
 	verbalQuestionService := services.NewVerbalQuestionService(db)
 	wordService := services.NewWordService(db)
@@ -52,7 +65,8 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS()) // Enable CORS
+	e.Use(middleware.CORS())
+	e.Use(customMiddleware.JWTAuthMiddleware(set))
 
 	// Register routes
 	registerRoutes(e, verbalQuestionHandler, wordHandler, userHandler, userVerbalStatsHandler)
@@ -84,9 +98,7 @@ func registerRoutes(e *echo.Echo,
 	// User routes
 	uGroup := e.Group("/users")
 	uGroup.POST("", userHandler.Create)
-	uGroup.GET("/:id", userHandler.GetByID)
-	uGroup.GET("/email", userHandler.GetByEmail)
-	uGroup.GET("/token", userHandler.GetByUserToken)
+	uGroup.GET("", userHandler.Get)
 	uGroup.POST("/marked-words", userHandler.AddMarkedWords)
 	uGroup.POST("/marked-questions", userHandler.AddMarkedQuestions)
 	uGroup.GET("/marked-words", userHandler.GetMarkedWordsByUserToken)

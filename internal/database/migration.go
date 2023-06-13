@@ -63,7 +63,7 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE TABLE IF NOT EXISTS `+UsersTable+` (
 			`+UserIDField+` SERIAL PRIMARY KEY,
 			`+UserTokenField+` TEXT NOT NULL UNIQUE,
-			`+UserEmailField+` TEXT NOT NULL UNIQUE
+			`+UserEmailField+` TEXT NOT NULL
 		);
 	`)
 
@@ -90,9 +90,9 @@ func Migrate(db *pgxpool.Pool) {
 	// Create user verbal stats join table
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+UserVerbalStatsJoinTable+` (
+			`+UserVerbalStatsJoinIDField+` SERIAL PRIMARY KEY,
 			`+UserVerbalStatsJoinVerbalField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
-			`+UserVerbalStatsJoinUserField+` TEXT REFERENCES `+UsersTable+`(`+UserTokenField+`),
-			PRIMARY KEY (`+UserVerbalStatsJoinVerbalField+`, `+UserVerbalStatsJoinUserField+`)
+			`+UserVerbalStatsJoinUserField+` TEXT REFERENCES `+UsersTable+`(`+UserTokenField+`)
 		);
 	`)
 
