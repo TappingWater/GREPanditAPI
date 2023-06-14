@@ -104,6 +104,34 @@ func (s *UserService) AddMarkedQuestions(ctx context.Context, userToken string, 
 	return nil
 }
 
+// removes marked words for a user to the database.
+func (s *UserService) RemoveMarkedWords(ctx context.Context, userToken string, wordIDs []int) error {
+	array := pq.Array(wordIDs)
+	query := `
+		DELETE FROM ` + database.UserMarkedWordsTable + `
+		WHERE ` + database.UserMarkedWordsUserField + ` = $1
+		AND ` + database.UserMarkedWordsWordField + ` = ANY($2)`
+	_, err := s.DB.Exec(ctx, query, userToken, array)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// removes marked questions for a user to the database.
+func (s *UserService) RemoveMarkedQuestions(ctx context.Context, userToken string, questionIDs []int) error {
+	array := pq.Array(questionIDs)
+	query := `
+		DELETE FROM ` + database.UserMarkedVerbalQuestionsTable + `
+		WHERE ` + database.UserMarkedVerbalQuestionsUserField + ` = $1
+		AND ` + database.UserMarkedVerbalQuestionsQuestionField + ` = ANY($2)`
+	_, err := s.DB.Exec(ctx, query, userToken, array)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *UserService) GetMarkedWordsByUserToken(ctx context.Context, userToken string) ([]models.UserMarkedWord, error) {
 	query := `
 		SELECT * FROM ` + database.UserMarkedWordsTable + `

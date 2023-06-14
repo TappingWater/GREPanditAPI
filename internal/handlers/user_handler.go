@@ -19,6 +19,7 @@ func NewUserHandler(s *services.UserService) *UserHandler {
 
 /**
 * Create adds a new user to the database with the given data.
+* If user exits sends a 409 error
 *
 * @param c An echo.Context instance.
 * @return An error response or a JSON response with the created user data.
@@ -137,6 +138,50 @@ func (h *UserHandler) AddMarkedQuestions(c echo.Context) error {
 	err = h.Service.AddMarkedQuestions(ctx, user.Token, requestBody.QuestionIDs)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to add marked questions")
+	}
+	return c.JSON(http.StatusCreated, requestBody)
+}
+
+// Remove marked words for a user from the database
+func (h *UserHandler) RemoveMarkedWords(c echo.Context) error {
+	ctx := c.Request().Context()
+	// Parse the request body into a marked words model
+	var requestBody struct {
+		WordIDs []int `json:"words"`
+	}
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
+	}
+	user, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
+	// Call the service method to add the marked words
+	err = h.Service.RemoveMarkedWords(ctx, user.Token, requestBody.WordIDs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to add marked words")
+	}
+	return c.JSON(http.StatusCreated, requestBody)
+}
+
+// Remove marked words for a user from the database
+func (h *UserHandler) RemoveMarkedQuestions(c echo.Context) error {
+	ctx := c.Request().Context()
+	// Parse the request body into a marked words model
+	var requestBody struct {
+		QuestionIDs []int `json:"questions"`
+	}
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
+	}
+	user, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
+	// Call the service method to add the marked words
+	err = h.Service.RemoveMarkedQuestions(ctx, user.Token, requestBody.QuestionIDs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to add marked words")
 	}
 	return c.JSON(http.StatusCreated, requestBody)
 }

@@ -101,6 +101,8 @@ func registerRoutes(e *echo.Echo,
 	uGroup.GET("", userHandler.Get)
 	uGroup.POST("/marked-words", userHandler.AddMarkedWords)
 	uGroup.POST("/marked-questions", userHandler.AddMarkedQuestions)
+	uGroup.DELETE("/marked-words", userHandler.RemoveMarkedWords)
+	uGroup.DELETE("/marked-questions", userHandler.RemoveMarkedQuestions)
 	uGroup.GET("/marked-words", userHandler.GetMarkedWordsByUserToken)
 	uGroup.GET("/marked-questions", userHandler.GetMarkedVerbalQuestionsByUserToken)
 
