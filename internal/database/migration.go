@@ -79,25 +79,13 @@ func Migrate(db *pgxpool.Pool) {
 			`+VerbalStatsQuestionField+` INT NOT NULL REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
 			`+VerbalStatsCorrectField+` BOOLEAN,
 			`+VerbalStatsAnswersField+` TEXT[],
+			`+VerbalStatsDurationField+` INT,
 			`+VerbalStatsDateField+` TIMESTAMP
 		);
 	`)
 
 	if err != nil {
 		log.Fatalf("Could not create "+VerbalStatsTable+" table: %v", err)
-	}
-
-	// Create user verbal stats join table
-	_, err = db.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS `+UserVerbalStatsJoinTable+` (
-			`+UserVerbalStatsJoinIDField+` SERIAL PRIMARY KEY,
-			`+UserVerbalStatsJoinVerbalField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
-			`+UserVerbalStatsJoinUserField+` TEXT REFERENCES `+UsersTable+`(`+UserTokenField+`)
-		);
-	`)
-
-	if err != nil {
-		log.Fatalf("Could not create "+UserVerbalStatsJoinTable+" table: %v", err)
 	}
 
 	// Create user marked words table
@@ -135,7 +123,6 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE INDEX IF NOT EXISTS idx_framed_as ON `+VerbalQuestionsTable+`(`+VerbalQuestionsFramedAsField+`);
 		CREATE INDEX IF NOT EXISTS idx_type ON `+VerbalQuestionsTable+`(`+VerbalQuestionsTypeField+`);
 		CREATE INDEX IF NOT EXISTS idx_user_token_users ON `+UsersTable+`(`+UserTokenField+`);
-		CREATE INDEX IF NOT EXISTS idx_user_token_user_verbal_stats ON `+UserVerbalStatsJoinTable+`(`+UserVerbalStatsJoinUserField+`);
 		CREATE INDEX IF NOT EXISTS idx_user_token_user_marked_words ON `+UserMarkedWordsTable+`(`+UserMarkedWordsUserField+`);
 		CREATE INDEX IF NOT EXISTS idx_user_token_user_marked_verbal_questions ON `+UserMarkedVerbalQuestionsTable+`(`+UserMarkedVerbalQuestionsUserField+`);
 	`)

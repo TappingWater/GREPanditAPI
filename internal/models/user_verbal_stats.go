@@ -4,10 +4,11 @@ import "time"
 
 type UserVerbalStat struct {
 	ID         int       `json:"id"`
-	UserToken  string    `json:"user_token"`
+	UserToken  string    `json:"string"`
 	QuestionID int       `json:"question_id"`
 	Correct    bool      `json:"correct"`
 	Answers    []string  `json:"answers"`
+	Duration   int       `json:"duration"`
 	Date       time.Time `json:"time"`
 }
 

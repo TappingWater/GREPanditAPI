@@ -7,7 +7,6 @@ const (
 	VerbalQuestionWordsJoinTable   = "verbal_question_words"
 	UsersTable                     = "users"
 	VerbalStatsTable               = "verbal_stats"
-	UserVerbalStatsJoinTable       = "user_verbal_stats"
 	UserMarkedWordsTable           = "user_marked_words"
 	UserMarkedVerbalQuestionsTable = "user_marked_verbal_questions"
 )
@@ -55,14 +54,8 @@ const (
 	VerbalStatsQuestionField = "question_id"
 	VerbalStatsCorrectField  = "correct"
 	VerbalStatsAnswersField  = "answers"
+	VerbalStatsDurationField = "duration"
 	VerbalStatsDateField     = "date"
-)
-
-// User Verbal Stats Join table field names
-const (
-	UserVerbalStatsJoinIDField     = "id"
-	UserVerbalStatsJoinVerbalField = "stats_id"
-	UserVerbalStatsJoinUserField   = "user_token"
 )
 
 // User Marked Words table field names
