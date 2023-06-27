@@ -14,8 +14,10 @@ func Migrate(db *pgxpool.Pool) {
 	_, err := db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+WordsTable+` (
 			`+WordsIDField+` SERIAL PRIMARY KEY,
-			`+WordsWordField+` TEXT UNIQUE,
-			`+WordsMeaningsField+` JSONB
+			`+WordsWordField+` VARCHAR(255) UNIQUE,
+			`+WordsExamplesField+` TEXT[],
+			`+WordsMeaningsField+` JSONB,
+			`+WordsMarkedField+` BOOLEAN DEFAULT FALSE NOT NULL
 		);
 	`)
 
@@ -33,9 +35,7 @@ func Migrate(db *pgxpool.Pool) {
 			`+VerbalQuestionsParagraphField+` TEXT,
 			`+VerbalQuestionsQuestionField+` TEXT,
 			`+VerbalQuestionsOptionsField+` JSONB,
-			`+VerbalQuestionsAnswerField+` TEXT[],
 			`+VerbalQuestionsWordField+` TEXT[],
-			`+VerbalQuestionsExplanationField+` TEXT,
 			`+VerbalQuestionsDifficultyField+` INT,
 			`+VerbalQuestionsWordmapField+` JSONB
 		);
@@ -75,7 +75,7 @@ func Migrate(db *pgxpool.Pool) {
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+VerbalStatsTable+` (
 			`+VerbalStatsIDField+` SERIAL PRIMARY KEY,
-			`+VerbalStatsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
+			`+VerbalStatsUserField+` TEXT NOT NULL,
 			`+VerbalStatsQuestionField+` INT NOT NULL REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
 			`+VerbalStatsCorrectField+` BOOLEAN,
 			`+VerbalStatsAnswersField+` TEXT[],
@@ -119,6 +119,7 @@ func Migrate(db *pgxpool.Pool) {
 	// Create needed indexes for querying and improving performance
 	_, err = db.Exec(ctx, `
 		CREATE INDEX IF NOT EXISTS idx_word ON `+WordsTable+`(`+WordsWordField+`);
+		CREATE INDEX IF NOT EXISTS idx_word ON `+WordsTable+`(`+WordsMarkedField+`) WHERE `+WordsMarkedField+`=TRUE;
 		CREATE INDEX IF NOT EXISTS idx_competence ON `+VerbalQuestionsTable+`(`+VerbalQuestionsCompetenceField+`);
 		CREATE INDEX IF NOT EXISTS idx_framed_as ON `+VerbalQuestionsTable+`(`+VerbalQuestionsFramedAsField+`);
 		CREATE INDEX IF NOT EXISTS idx_type ON `+VerbalQuestionsTable+`(`+VerbalQuestionsTypeField+`);

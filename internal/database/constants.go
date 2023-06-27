@@ -16,22 +16,22 @@ const (
 	WordsIDField       = "id"
 	WordsWordField     = "word"
 	WordsMeaningsField = "meanings"
+	WordsExamplesField = "examples"
+	WordsMarkedField   = "marked"
 )
 
 // VerbalQuestions field names
 const (
-	VerbalQuestionsIDField          = "id"
-	VerbalQuestionsCompetenceField  = "competence"
-	VerbalQuestionsFramedAsField    = "framed_as"
-	VerbalQuestionsTypeField        = "type"
-	VerbalQuestionsParagraphField   = "paragraph"
-	VerbalQuestionsQuestionField    = "question"
-	VerbalQuestionsOptionsField     = "options"
-	VerbalQuestionsAnswerField      = "answer"
-	VerbalQuestionsWordField        = "word"
-	VerbalQuestionsExplanationField = "explanation"
-	VerbalQuestionsDifficultyField  = "difficulty"
-	VerbalQuestionsWordmapField     = "wordmap"
+	VerbalQuestionsIDField         = "id"
+	VerbalQuestionsCompetenceField = "competence"
+	VerbalQuestionsFramedAsField   = "framed_as"
+	VerbalQuestionsTypeField       = "type"
+	VerbalQuestionsParagraphField  = "paragraph"
+	VerbalQuestionsQuestionField   = "question"
+	VerbalQuestionsOptionsField    = "options"
+	VerbalQuestionsWordField       = "word"
+	VerbalQuestionsDifficultyField = "difficulty"
+	VerbalQuestionsWordmapField    = "wordmap"
 )
 
 // Join table for users and verbal questions

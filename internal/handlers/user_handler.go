@@ -185,3 +185,19 @@ func (h *UserHandler) RemoveMarkedQuestions(c echo.Context) error {
 	}
 	return c.JSON(http.StatusCreated, requestBody)
 }
+
+// Get a list of problematic words for the user
+func (h *UserHandler) GetProblematicWordsByUserToken(c echo.Context) error {
+	ctx := c.Request().Context()
+	user, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
+	print(user.Token)
+	problematicWords, err := h.Service.GetProblematicWordsByUserToken(ctx, user.Token)
+	if err != nil {
+		fmt.Println(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get marked verbal questions")
+	}
+	return c.JSON(http.StatusOK, problematicWords)
+}

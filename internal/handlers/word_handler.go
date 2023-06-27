@@ -133,3 +133,27 @@ func (h *WordHandler) GetByWord(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, w)
 }
+
+func (h *WordHandler) MarkWords(c echo.Context) error {
+	// Bind the request payload to the req struct
+	req := models.MarkWordsReq{}
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
+	}
+	err := h.Service.MarkWords(c.Request().Context(), req.Words)
+	if err != nil {
+		fmt.Println(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to mark words")
+	}
+	return c.JSON(http.StatusOK, req)
+}
+
+func (h *WordHandler) GetMarkedWords(c echo.Context) error {
+	// Bind the request payload to the req struct
+	ctx := c.Request().Context()
+	w, err := h.Service.GetMarkedWords(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrive marked words")
+	}
+	return c.JSON(http.StatusOK, w)
+}

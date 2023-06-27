@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/aaaton/golem/v4"
 	"github.com/aaaton/golem/v4/dicts/en"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -33,15 +34,46 @@ func (s *WordService) Create(ctx context.Context, w *models.Word) error {
 	if err != nil {
 		return err
 	}
-	query := "INSERT INTO " + database.WordsTable + " (" + database.WordsWordField + ", " + database.WordsMeaningsField + ") VALUES ($1, $2) RETURNING " + database.WordsIDField
-	return s.DB.QueryRow(ctx, query, baseForm, meaningsJson).Scan(&w.ID)
+	query := squirrel.Insert(database.WordsTable).
+		Columns(
+			database.WordsWordField,
+			database.WordsExamplesField,
+			database.WordsMeaningsField,
+			database.WordsMarkedField).
+		Values(
+			baseForm,
+			w.Examples,
+			meaningsJson,
+			w.Marked).
+		Suffix("RETURNING " + database.WordsIDField).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
+	return s.DB.QueryRow(ctx, sqlQuery, args...).Scan(&w.ID)
 }
 
 func (s *WordService) GetByID(ctx context.Context, id int) (*models.Word, error) {
 	w := &models.Word{}
-	query := "SELECT * FROM " + database.WordsTable + " WHERE " + database.WordsIDField + " = $1"
+	query := squirrel.Select("*").
+		From(database.WordsTable).
+		Where(squirrel.Eq{database.WordsIDField: id}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
 	var meaningsJson []byte
-	err := s.DB.QueryRow(ctx, query, id).Scan(&w.ID, &w.Word, &meaningsJson)
+	err = s.DB.QueryRow(
+		ctx,
+		sqlQuery,
+		args...).Scan(
+		&w.ID,
+		&w.Word,
+		&meaningsJson,
+		&w.Examples,
+		&w.Marked)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, echo.ErrNotFound
@@ -64,9 +96,25 @@ func (s *WordService) GetByWord(ctx context.Context, word string) (*models.Word,
 	}
 	baseForm := lemmatizer.Lemma(word)
 	w := &models.Word{}
-	query := "SELECT * FROM " + database.WordsTable + " WHERE " + database.WordsWordField + " = $1"
+	query := squirrel.
+		Select("*").
+		From(database.WordsTable).
+		Where(squirrel.Eq{database.WordsWordField: baseForm}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
 	var meaningsJson []byte
-	err = s.DB.QueryRow(ctx, query, baseForm).Scan(&w.ID, &w.Word, &meaningsJson)
+	err = s.DB.QueryRow(
+		ctx,
+		sqlQuery,
+		args...).Scan(
+		&w.ID,
+		&w.Word,
+		&meaningsJson,
+		&w.Examples,
+		&w.Marked)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, echo.ErrNotFound
@@ -78,4 +126,70 @@ func (s *WordService) GetByWord(ctx context.Context, word string) (*models.Word,
 		return nil, err
 	}
 	return w, nil
+}
+
+func (s *WordService) MarkWords(ctx context.Context, words []string) error {
+	lemmatizer, err := golem.New(en.New())
+	if err != nil {
+		return err
+	}
+	baseFormsSet := make(map[string]struct{})
+	for _, word := range words {
+		baseForm := lemmatizer.Lemma(word)
+		baseFormsSet[baseForm] = struct{}{}
+	}
+	baseForms := make([]string, 0, len(baseFormsSet))
+	for baseForm := range baseFormsSet {
+		baseForms = append(baseForms, baseForm)
+	}
+	query := squirrel.Update(database.WordsTable).
+		Set("marked", true).
+		Where(squirrel.Eq{"word": words}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(ctx, sqlQuery, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *WordService) GetMarkedWords(ctx context.Context) ([]*models.Word, error) {
+	// Construct the SQL query
+	query := squirrel.
+		Select("*").
+		From(database.WordsTable).
+		Where(squirrel.Eq{database.WordsMarkedField: true}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	// Execute the SQL query
+	rows, err := s.DB.Query(ctx, sqlQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	// Iterate over rows and unmarshal JSON
+	var words []*models.Word
+	for rows.Next() {
+		w := &models.Word{}
+		var meaningsJson []byte
+		if err := rows.Scan(&w.ID, &w.Word, &meaningsJson, &w.Examples, &w.Marked); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(meaningsJson, &w.Meanings); err != nil {
+			return nil, err
+		}
+		words = append(words, w)
+	}
+	// Check for errors from iterating over rows.
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return words, nil
 }

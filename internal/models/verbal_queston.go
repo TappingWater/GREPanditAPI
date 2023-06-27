@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 )
@@ -60,7 +59,7 @@ func (c Competence) String() string {
 	case ReasoningFromIncompleteData:
 		return "Reasoning from incomplete data"
 	case IdentifyingAuthorsAssumptionsPerspective:
-		return "Identifying authors assumptions/perspective"
+		return "Identifying author's assumptions/perspective"
 	case UnderstandingMultipleLevelsOfMeaning:
 		return "Understanding multiple levels of meaning"
 	case SelectingImportantInfo:
@@ -113,48 +112,6 @@ func (f FramedAs) MarshalJSON() ([]byte, error) {
 
 func (q QuestionType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(q.String())
-}
-
-func (v *VerbalQuestion) UnmarshalJSON(data []byte) error {
-	type Alias VerbalQuestion
-	aux := struct {
-		Paragraph *string `json:"paragraph"`
-		*Alias
-	}{
-		Alias: (*Alias)(v),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-	// If ParagraphText is null in the JSON data, make it null in the VerbalQuestion
-	if aux.Paragraph == nil {
-		v.Paragraph.Valid = false
-	} else {
-		v.Paragraph.Valid = true
-		v.Paragraph.String = *aux.Paragraph
-	}
-	return nil
-}
-
-func (v *VerbalQuestionRequest) UnmarshalJSON(data []byte) error {
-	type Alias VerbalQuestionRequest
-	aux := struct {
-		Paragraph *string `json:"paragraph"`
-		*Alias
-	}{
-		Alias: (*Alias)(v),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-	// If ParagraphText is null in the JSON data, make it null in the VerbalQuestion
-	if aux.Paragraph == nil {
-		v.Paragraph.Valid = false
-	} else {
-		v.Paragraph.Valid = true
-		v.Paragraph.String = *aux.Paragraph
-	}
-	return nil
 }
 
 func (d *Difficulty) UnmarshalJSON(data []byte) error {
@@ -254,11 +211,9 @@ type VerbalQuestion struct {
 	Competence   Competence        `json:"competence"`
 	FramedAs     FramedAs          `json:"framed_as"`
 	Type         QuestionType      `json:"type"`
-	Paragraph    sql.NullString    `json:"paragraph,omitempty"`
+	Paragraph    string            `json:"paragraph"`
 	Question     string            `json:"question"`
 	Options      []Option          `json:"options"`
-	Answer       []string          `json:"answer"`
-	Explanation  string            `json:"explanation"`
 	Difficulty   Difficulty        `json:"difficulty"`
 	Vocabulary   []Word            `json:"vocabulary"`
 	VocabWordMap map[string]string `json:"wordmap"`
@@ -269,17 +224,15 @@ type VerbalQuestion struct {
 * Vocabulary is passed as a list of words here.
 **/
 type VerbalQuestionRequest struct {
-	ID          int            `json:"id"`
-	Competence  Competence     `json:"competence"`
-	FramedAs    FramedAs       `json:"framed_as"`
-	Type        QuestionType   `json:"type"`
-	Paragraph   sql.NullString `json:"paragraph,omitempty"`
-	Question    string         `json:"question"`
-	Options     []Option       `json:"options"`
-	Answer      []string       `json:"answer"`
-	Explanation string         `json:"explanation"`
-	Difficulty  Difficulty     `json:"difficulty"`
-	Vocabulary  []string       `json:"vocabulary"`
+	ID         int          `json:"id"`
+	Competence Competence   `json:"competence"`
+	FramedAs   FramedAs     `json:"framed_as"`
+	Type       QuestionType `json:"type"`
+	Paragraph  string       `json:"paragraph"`
+	Question   string       `json:"question"`
+	Options    []Option     `json:"options"`
+	Difficulty Difficulty   `json:"difficulty"`
+	Vocabulary []string     `json:"vocabulary"`
 }
 
 type RandomQuestionsRequest struct {

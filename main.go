@@ -87,11 +87,13 @@ func registerRoutes(e *echo.Echo,
 	vqGroup.POST("", verbalQuestionHandler.Create)
 	vqGroup.GET("/:id", verbalQuestionHandler.Get)
 	vqGroup.POST("/random", verbalQuestionHandler.GetRandomQuestions)
-	vqGroup.GET("/count", verbalQuestionHandler.Count)
+	vqGroup.GET("", verbalQuestionHandler.GetAll)
 
 	// Word routes
 	wGroup := e.Group("/words")
 	wGroup.POST("", wordHandler.Create)
+	wGroup.PATCH("/marked", wordHandler.MarkWords)
+	wGroup.GET("/marked", wordHandler.GetMarkedWords)
 	wGroup.GET("/:id", wordHandler.GetByID)
 	wGroup.GET("/word/:word", wordHandler.GetByWord)
 
@@ -105,6 +107,7 @@ func registerRoutes(e *echo.Echo,
 	uGroup.DELETE("/marked-questions", userHandler.RemoveMarkedQuestions)
 	uGroup.GET("/marked-words", userHandler.GetMarkedWordsByUserToken)
 	uGroup.GET("/marked-questions", userHandler.GetMarkedVerbalQuestionsByUserToken)
+	uGroup.GET("/problematic-words", userHandler.GetProblematicWordsByUserToken)
 
 	// UserVerbalStat routes
 	uvsGroup := e.Group("/verbal-stats")

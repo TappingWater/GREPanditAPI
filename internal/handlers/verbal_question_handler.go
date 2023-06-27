@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"grepandit.com/api/internal/models"
@@ -101,25 +102,29 @@ func (h *VerbalQuestionHandler) Get(c echo.Context) error {
 	return c.JSON(http.StatusOK, q)
 }
 
-// Count retrieves the total number of verbal questions in the database.
-//
-// Example Request:
-// GET /verbal-questions/count
-//
-// Example Response:
-// HTTP/1.1 200 OK
-// Content-Type: application/json
-//
-// 10
-//
-// @param c An echo.Context instance.
-// @return An error response or a JSON response with the total count of questions.
-func (h *VerbalQuestionHandler) Count(c echo.Context) error {
-	count, err := h.Service.Count(c.Request().Context())
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get question count")
+func (h *VerbalQuestionHandler) GetAll(c echo.Context) error {
+	idsParam := c.QueryParam("ids")
+	// idsParam is a string like "[31,63]" so we need to convert it into an array of ints
+	idsParam = strings.Trim(idsParam, "[]")
+	idStrings := strings.Split(idsParam, ",")
+	ids := make([]int, 0, len(idStrings))
+	for _, idString := range idStrings {
+		id, err := strconv.Atoi(strings.TrimSpace(idString))
+		if err != nil {
+			return err
+		}
+		ids = append(ids, id)
 	}
-	return c.JSON(http.StatusOK, count)
+	ctx := c.Request().Context()
+	q, err := h.Service.GetByIDs(ctx, ids)
+	if err != nil {
+		if err == echo.ErrNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "Question not found with id "+c.Param("id"))
+		}
+		println(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get question")
+	}
+	return c.JSON(http.StatusOK, q)
 }
 
 // GetRandomQuestions retrieves a specified number of random verbal questions from the database, filtered by various criteria.

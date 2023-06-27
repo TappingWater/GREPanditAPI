@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/lib/pq"
@@ -63,7 +65,6 @@ func (s *UserService) AddMarkedWords(ctx context.Context, userToken string, word
 	for i := range userTokens {
 		userTokens[i] = userToken
 	}
-
 	query := `
 		INSERT INTO ` + database.UserMarkedWordsTable + ` (` +
 		database.UserMarkedWordsUserField + `, ` +
@@ -71,12 +72,11 @@ func (s *UserService) AddMarkedWords(ctx context.Context, userToken string, word
 		SELECT * FROM UNNEST($1::TEXT[], $2::INT[])
 		ON CONFLICT (` + database.UserMarkedWordsUserField + `, ` +
 		database.UserMarkedWordsWordField + `) DO NOTHING`
-
 	_, err := s.DB.Exec(ctx, query, userTokens, wordIDs)
 	if err != nil {
+		print(err.Error())
 		return err
 	}
-
 	return nil
 }
 
@@ -133,18 +133,33 @@ func (s *UserService) RemoveMarkedQuestions(ctx context.Context, userToken strin
 }
 
 func (s *UserService) GetMarkedWordsByUserToken(ctx context.Context, userToken string) ([]models.UserMarkedWord, error) {
-	query := `
-		SELECT * FROM ` + database.UserMarkedWordsTable + `
-		WHERE ` + database.UserMarkedWordsUserField + ` = $1`
-	rows, err := s.DB.Query(ctx, query, userToken)
+	query := squirrel.
+		Select("u.*, w.*").
+		From(database.UserMarkedWordsTable + " AS u").
+		Join(database.WordsTable + " AS w ON u.word_id = w.id").
+		Where(squirrel.Eq{"u.user_token": userToken}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.DB.Query(ctx, sqlQuery, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	markedWords := make([]models.UserMarkedWord, 0)
+	var markedWords []models.UserMarkedWord
 	for rows.Next() {
 		var markedWord models.UserMarkedWord
-		err := rows.Scan(&markedWord.ID, &markedWord.UserToken, &markedWord.WordID)
+		err := rows.Scan(
+			&markedWord.ID,
+			&markedWord.UserToken,
+			&markedWord.WordID,
+			&markedWord.Word.ID,
+			&markedWord.Word.Word,
+			&markedWord.Word.Meanings,
+			&markedWord.Word.Examples,
+			&markedWord.Word.Marked)
 		if err != nil {
 			return nil, err
 		}
@@ -172,4 +187,93 @@ func (s *UserService) GetMarkedVerbalQuestionsByUserToken(ctx context.Context, u
 		markedQuestions = append(markedQuestions, markedQuestion)
 	}
 	return markedQuestions, nil
+}
+
+func (s *UserService) GetProblematicWordsByUserToken(ctx context.Context, userToken string) ([]models.Word, error) {
+	// Query to get all incorrect stats for the user
+	incorrectStatsQuery := squirrel.Select(
+		"vs."+database.VerbalStatsQuestionField,
+	).
+		From(database.VerbalStatsTable+" AS vs").
+		Where(
+			squirrel.Eq{"vs." + database.VerbalStatsUserField: userToken},
+			squirrel.Eq{"vs." + database.VerbalStatsCorrectField: false},
+		).
+		PlaceholderFormat(squirrel.Dollar)
+	incorrectSqlQuery, args, err := incorrectStatsQuery.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.DB.Query(ctx, incorrectSqlQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	// Get all the questions that the user answered incorrectly
+	questionIDs := make([]int, 0)
+	for rows.Next() {
+		var questionID int
+		err := rows.Scan(&questionID)
+		if err != nil {
+			return nil, err
+		}
+		questionIDs = append(questionIDs, questionID)
+	}
+	// Query to get all word IDs from verbal_question_words with those question IDs
+	wordIDsQuery := squirrel.Select("vw." + database.VerbalQuestionWordJoinWordField).
+		From(database.VerbalQuestionWordsJoinTable + " AS vw").
+		Where(squirrel.Eq{"vw." + database.VerbalQuestionWordJoinVerbalField: questionIDs}).
+		PlaceholderFormat(squirrel.Dollar)
+	wordIDsSqlQuery, wordIDsArgs, err := wordIDsQuery.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	wordIDsRows, err := s.DB.Query(ctx, wordIDsSqlQuery, wordIDsArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer wordIDsRows.Close()
+	// Get a list of unique word ids
+	uniqueWordIDs := make(map[int]struct{})
+	for wordIDsRows.Next() {
+		var wordID int
+		err := wordIDsRows.Scan(&wordID)
+		if err != nil {
+			return nil, err
+		}
+		uniqueWordIDs[wordID] = struct{}{}
+	}
+	uniqueIDS := make([]int, 0, len(uniqueWordIDs))
+	for k, _ := range uniqueWordIDs {
+		uniqueIDS = append(uniqueIDS, k)
+	}
+	// Query to get all words from words table with those word IDs
+	wordsQuery := squirrel.Select("*").
+		From(database.WordsTable).
+		Where(squirrel.Eq{database.WordsIDField: uniqueIDS}).
+		PlaceholderFormat(squirrel.Dollar)
+	wordsSqlQuery, wordsArgs, err := wordsQuery.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	wordRows, err := s.DB.Query(ctx, wordsSqlQuery, wordsArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer wordRows.Close()
+	words := make([]models.Word, 0)
+	for wordRows.Next() {
+		var w models.Word
+		var meaningsJson []byte
+		err := wordRows.Scan(&w.ID, &w.Word, &meaningsJson, &w.Examples, &w.Marked)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(meaningsJson, &w.Meanings)
+		if err != nil {
+			return nil, err
+		}
+		words = append(words, w)
+	}
+	return words, nil
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
-	"github.com/lib/pq"
 	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/models"
 )
@@ -50,7 +49,7 @@ func (s *VerbalQuestionService) Create(
 	variations := make(map[string]string)
 	// Check paragraph
 	// Split paragraph by whitespaces and periods
-	paragraphWords := strings.FieldsFunc(q.Paragraph.String, func(r rune) bool {
+	paragraphWords := strings.FieldsFunc(q.Paragraph, func(r rune) bool {
 		return r == ' ' || r == '.' || r == ',' || r == '!' || r == '(' || r == ')'
 	})
 	for _, word := range paragraphWords {
@@ -94,8 +93,6 @@ func (s *VerbalQuestionService) Create(
 			database.VerbalQuestionsParagraphField,
 			database.VerbalQuestionsQuestionField,
 			database.VerbalQuestionsOptionsField,
-			database.VerbalQuestionsAnswerField,
-			database.VerbalQuestionsExplanationField,
 			database.VerbalQuestionsDifficultyField,
 			database.VerbalQuestionsWordmapField).
 		Values(
@@ -105,8 +102,6 @@ func (s *VerbalQuestionService) Create(
 			q.Paragraph,
 			q.Question,
 			optionsJson,
-			pq.Array(q.Answer),
-			q.Explanation,
 			q.Difficulty,
 			wordmapJson).
 		Suffix("RETURNING " + database.VerbalQuestionsIDField).
@@ -154,8 +149,6 @@ func (s *VerbalQuestionService) GetByID(
 		database.VerbalQuestionsParagraphField,
 		database.VerbalQuestionsQuestionField,
 		database.VerbalQuestionsOptionsField,
-		database.VerbalQuestionsAnswerField,
-		database.VerbalQuestionsExplanationField,
 		database.VerbalQuestionsDifficultyField,
 		database.VerbalQuestionsWordmapField,
 	).
@@ -177,8 +170,6 @@ func (s *VerbalQuestionService) GetByID(
 			&q.Paragraph,
 			&q.Question,
 			&optionsJson,
-			pq.Array(&q.Answer),
-			&q.Explanation,
 			&q.Difficulty,
 			&wordMapJson,
 		)
@@ -198,7 +189,7 @@ func (s *VerbalQuestionService) GetByID(
 	}
 	// Now get the vocabulary words.
 	rows, err := s.DB.Query(ctx, `
-		SELECT w.`+database.WordsIDField+`, w.`+database.WordsWordField+`, w.`+database.WordsMeaningsField+`
+		SELECT w.`+database.WordsIDField+`, w.`+database.WordsWordField+`, w.`+database.WordsMeaningsField+`, w.`+database.WordsExamplesField+`
 		FROM `+database.WordsTable+` AS w
 		INNER JOIN `+database.VerbalQuestionWordsJoinTable+` AS vqw ON w.`+database.WordsIDField+` = vqw.`+database.VerbalQuestionWordJoinWordField+`
 		WHERE vqw.`+database.VerbalQuestionWordJoinVerbalField+` = $1
@@ -212,7 +203,7 @@ func (s *VerbalQuestionService) GetByID(
 	var meaningsJson []byte
 	for rows.Next() {
 		var word models.Word
-		err = rows.Scan(&word.ID, &word.Word, &meaningsJson)
+		err = rows.Scan(&word.ID, &word.Word, &meaningsJson, &word.Examples)
 		if err != nil {
 			return nil, err
 		}
@@ -225,14 +216,88 @@ func (s *VerbalQuestionService) GetByID(
 	return q, nil
 }
 
-func (s *VerbalQuestionService) Count(ctx context.Context) (int, error) {
-	var count int
-	err := s.DB.QueryRow(ctx, "SELECT COUNT(*) FROM "+database.VerbalQuestionsTable).
-		Scan(&count)
+func (s *VerbalQuestionService) GetByIDs(
+	ctx context.Context,
+	ids []int,
+) ([]*models.VerbalQuestion, error) {
+	questions := make([]*models.VerbalQuestion, 0)
+	query := squirrel.Select(
+		database.VerbalQuestionsIDField,
+		database.VerbalQuestionsCompetenceField,
+		database.VerbalQuestionsFramedAsField,
+		database.VerbalQuestionsTypeField,
+		database.VerbalQuestionsParagraphField,
+		database.VerbalQuestionsQuestionField,
+		database.VerbalQuestionsOptionsField,
+		database.VerbalQuestionsDifficultyField,
+		database.VerbalQuestionsWordmapField,
+	).
+		From(database.VerbalQuestionsTable).
+		Where(squirrel.Eq{database.VerbalQuestionsIDField: ids}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return count, nil
+	rows, err := s.DB.Query(ctx, sqlQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		q := &models.VerbalQuestion{}
+		var optionsJson []byte
+		var wordMapJson []byte
+		err = rows.Scan(
+			&q.ID,
+			&q.Competence,
+			&q.FramedAs,
+			&q.Type,
+			&q.Paragraph,
+			&q.Question,
+			&optionsJson,
+			&q.Difficulty,
+			&wordMapJson,
+		)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(optionsJson, &q.Options)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(wordMapJson, &q.VocabWordMap)
+		if err != nil {
+			return nil, err
+		}
+		// Now get the vocabulary words.
+		wordsRows, err := s.DB.Query(ctx, `
+			SELECT w.`+database.WordsIDField+`, w.`+database.WordsWordField+`, w.`+database.WordsMeaningsField+`, w.`+database.WordsExamplesField+`
+			FROM `+database.WordsTable+` AS w
+			INNER JOIN `+database.VerbalQuestionWordsJoinTable+` AS vqw ON w.`+database.WordsIDField+` = vqw.`+database.VerbalQuestionWordJoinWordField+`
+			WHERE vqw.`+database.VerbalQuestionWordJoinVerbalField+` = $1
+		`, q.ID)
+		if err != nil {
+			return nil, err
+		}
+		q.Vocabulary = make([]models.Word, 0)
+		var meaningsJson []byte
+		for wordsRows.Next() {
+			var word models.Word
+			err = wordsRows.Scan(&word.ID, &word.Word, &meaningsJson, &word.Examples)
+			if err != nil {
+				return nil, err
+			}
+			err = json.Unmarshal(meaningsJson, &word.Meanings)
+			if err != nil {
+				return nil, err
+			}
+			q.Vocabulary = append(q.Vocabulary, word)
+		}
+		wordsRows.Close()
+		questions = append(questions, q)
+	}
+	return questions, nil
 }
 
 /**
@@ -297,13 +362,12 @@ func (s *VerbalQuestionService) Random(
 		"q."+database.VerbalQuestionsParagraphField,
 		"q."+database.VerbalQuestionsQuestionField,
 		"q."+database.VerbalQuestionsOptionsField,
-		"q."+database.VerbalQuestionsAnswerField,
-		"q."+database.VerbalQuestionsExplanationField,
 		"q."+database.VerbalQuestionsDifficultyField,
 		"q."+database.VerbalQuestionsWordmapField,
 		"w."+database.WordsIDField,
 		"w."+database.WordsWordField,
 		"w."+database.WordsMeaningsField,
+		"w."+database.WordsExamplesField,
 	).
 		From(database.VerbalQuestionsTable + " AS q").
 		Join(database.VerbalQuestionWordsJoinTable + " AS a ON q." + database.VerbalQuestionsIDField + " = a." + database.VerbalQuestionWordJoinVerbalField).
@@ -332,13 +396,12 @@ func (s *VerbalQuestionService) Random(
 			&q.Paragraph,
 			&q.Question,
 			&q.Options,
-			&q.Answer,
-			&q.Explanation,
 			&q.Difficulty,
 			&q.VocabWordMap,
 			&word.ID,
 			&word.Word,
 			&meaningsJSON,
+			&word.Examples,
 		)
 		if err != nil {
 			return nil, err
