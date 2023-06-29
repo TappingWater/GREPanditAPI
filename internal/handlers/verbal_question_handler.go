@@ -133,14 +133,16 @@ func (h *VerbalQuestionHandler) GetRandomQuestions(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
 	}
-
 	// Call the service function
 	questions, err := h.Service.Random(c.Request().Context(), req.Limit, req.QuestionType, req.Competence, req.FramedAs, req.Difficulty, req.ExcludeIDs)
 	if err != nil {
 		fmt.Println(err.Error())
+		if err == echo.ErrNotFound {
+			// If a 404 error was returned, return an empty array
+			return c.JSON(404, "No more questions for given criteria")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve random questions")
 	}
-
 	return c.JSON(http.StatusOK, questions)
 }
 
@@ -152,11 +154,62 @@ func (h *VerbalQuestionHandler) GetAdaptiveQuestions(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	questions, err := h.Service.GetAdaptiveQuestions(ctx, u.Token, 5)
+	qidsToAvoidParam := c.QueryParam("questions")
+	qidStrArr := strings.Split(strings.Trim(qidsToAvoidParam, "[]"), ",")
+	qIds := make([]int, 0, len(qidStrArr))
+	for _, idString := range qidStrArr {
+		id, err := strconv.Atoi(strings.TrimSpace(idString))
+		if err != nil {
+			return err
+		}
+		qIds = append(qIds, id)
+	}
+	questions, err := h.Service.GetAdaptiveQuestions(ctx, u.Token, 5, qIds)
 	if err != nil {
 		fmt.Println(err.Error())
+		if err == echo.ErrNotFound {
+			// If a 404 error was returned, return an empty array
+			return c.JSON(404, "No more questions for given criteria")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve random questions")
 	}
+	return c.JSON(http.StatusOK, questions)
+}
 
+func (h *VerbalQuestionHandler) GetQuestionsOnVocab(c echo.Context) error {
+	ctx := c.Request().Context()
+	u, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
+	wordsIdsParam := c.QueryParam("words")
+	qidsToAvoidParam := c.QueryParam("questions")
+	wordStrArr := strings.Split(strings.Trim(wordsIdsParam, "[]"), ",")
+	qidStrArr := strings.Split(strings.Trim(qidsToAvoidParam, "[]"), ",")
+	wordIds := make([]int, 0, len(wordStrArr))
+	qIds := make([]int, 0, len(qidStrArr))
+	for _, idString := range wordStrArr {
+		id, err := strconv.Atoi(strings.TrimSpace(idString))
+		if err != nil {
+			return err
+		}
+		wordIds = append(wordIds, id)
+	}
+	for _, idString := range qidStrArr {
+		id, err := strconv.Atoi(strings.TrimSpace(idString))
+		if err != nil {
+			return err
+		}
+		qIds = append(qIds, id)
+	}
+	questions, err := h.Service.GetQuestionsOnVocab(ctx, u.Token, qIds, wordIds)
+	if err != nil {
+		fmt.Println(err.Error())
+		if err == echo.ErrNotFound {
+			// If a 404 error was returned, return an empty array
+			return c.JSON(404, "No more questions for given criteria")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve random questions")
+	}
 	return c.JSON(http.StatusOK, questions)
 }

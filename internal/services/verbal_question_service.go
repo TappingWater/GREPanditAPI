@@ -326,7 +326,6 @@ func (u *UserRewardSource) GetRewards(ctx context.Context, banditContext interfa
 		} else {
 			reward = 0.5 + rand.Float64()*(1-0.5)
 		}
-		println(combination)
 		distributions[i] = mab.Point(reward)
 	}
 	return distributions, nil
@@ -335,7 +334,8 @@ func (u *UserRewardSource) GetRewards(ctx context.Context, banditContext interfa
 /**
 * Fetch a list of questions that are adaptive based on the user
 **/
-func (s *VerbalQuestionService) GetAdaptiveQuestions(ctx context.Context, userToken string, numQuestions int) ([]*models.VerbalQuestion, error) {
+func (s *VerbalQuestionService) GetAdaptiveQuestions(ctx context.Context, userToken string,
+	numQuestions int, excludeIds []int) ([]*models.VerbalQuestion, error) {
 	// Get the user's performance stats
 	us := NewUserService(s.DB)
 	user, err := us.Get(ctx, userToken)
@@ -373,18 +373,28 @@ func (s *VerbalQuestionService) GetAdaptiveQuestions(ctx context.Context, userTo
 	}
 	// Get a question from each selected competency
 	questions := make([]*models.VerbalQuestion, numQuestions)
-	for i, combination := range selectedCombinations {
+	successCount := 0
+	for _, combination := range selectedCombinations {
 		parts := strings.Split(combination, "_")
-		question, err := s.GetByCriteria(ctx, parts[0], parts[1])
+		question, err := s.GetByCriteria(ctx, parts[0], parts[1], excludeIds)
 		if err != nil {
-			return nil, err
+			// If an error occurred, just move to the next one.
+			print(err.Error())
+			continue
 		}
-		questions[i] = question
+		// Only assign to the slice when we have a successful question.
+		questions[successCount] = question
+		successCount++
+	}
+	print(successCount)
+	// If we have less than numQuestions, resize the slice.
+	if successCount < numQuestions {
+		questions = questions[:successCount]
 	}
 	// New UserVerbalStatsService instance
 	uvss := NewUserVerbalStatsService(s.DB)
 	// Get the question IDs
-	questionIDs := make([]int, numQuestions)
+	questionIDs := make([]int, successCount)
 	for i, question := range questions {
 		questionIDs[i] = question.ID
 	}
@@ -406,6 +416,7 @@ func (s *VerbalQuestionService) GetByCriteria(
 	ctx context.Context,
 	difficulty string,
 	qType string,
+	excludeIDs []int,
 ) (*models.VerbalQuestion, error) {
 	difficultyEnum, err := models.StringToDifficulty(difficulty)
 	if err != nil {
@@ -431,6 +442,9 @@ func (s *VerbalQuestionService) GetByCriteria(
 		PlaceholderFormat(squirrel.Dollar)
 	query = query.Where(squirrel.Eq{database.VerbalQuestionsTypeField: qTypeEnum})
 	query = query.Where(squirrel.Eq{database.VerbalQuestionsDifficultyField: difficultyEnum})
+	if len(excludeIDs) > 0 {
+		query = query.Where(squirrel.NotEq{database.VerbalQuestionsIDField: excludeIDs})
+	}
 	// Execute the SQL query
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
@@ -591,4 +605,56 @@ func (s *VerbalQuestionService) Random(
 		questions = append(questions, question)
 	}
 	return questions, nil
+}
+
+func (s *VerbalQuestionService) GetQuestionsOnVocab(
+	ctx context.Context,
+	userToken string,
+	excludeQuestionIDs []int,
+	wordIDs []int,
+) ([]*models.VerbalQuestion, error) {
+	// Query the question-word join table for question ids based on the word ids
+	query := squirrel.Select(database.VerbalQuestionWordJoinVerbalField).
+		From(database.VerbalQuestionWordsJoinTable).
+		Where(squirrel.Eq{database.VerbalQuestionWordJoinWordField: wordIDs}).
+		PlaceholderFormat(squirrel.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.DB.Query(ctx, sqlQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	// Collect the question IDs
+	questionIDs := make([]int, 0)
+	for rows.Next() {
+		var id int
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		// Exclude question IDs from the exclude list
+		if !contains(excludeQuestionIDs, id) {
+			questionIDs = append(questionIDs, id)
+		}
+	}
+	// If there are more than 5 question IDs, randomly select 5
+	if len(questionIDs) > 5 {
+		rand.Shuffle(len(questionIDs), func(i, j int) { questionIDs[i], questionIDs[j] = questionIDs[j], questionIDs[i] })
+		questionIDs = questionIDs[:5]
+	}
+	// Call the GetByIDs function with the final question IDs
+	return s.GetByIDs(ctx, questionIDs)
+}
+
+// Helper function to check if a slice contains a value
+func contains(slice []int, val int) bool {
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
 }
