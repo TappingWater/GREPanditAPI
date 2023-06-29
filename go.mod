@@ -19,6 +19,9 @@ require (
 	github.com/lestrrat-go/iter v1.0.1 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/stitchfix/mab v0.1.1
+	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
+	gonum.org/v1/gonum v0.13.0 // indirect
 )
 
 require (

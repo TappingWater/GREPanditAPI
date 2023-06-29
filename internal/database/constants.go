@@ -42,9 +42,11 @@ const (
 
 // User field names
 const (
-	UserIDField    = "id"
-	UserTokenField = "token"
-	UserEmailField = "email"
+	UserIDField                 = "id"
+	UserTokenField              = "token"
+	UserEmailField              = "email"
+	UserVerbalAbilityField      = "verbal_ability"
+	UserVerbalAbilityCountField = "verbal_ability_count"
 )
 
 // VerbalStats field names

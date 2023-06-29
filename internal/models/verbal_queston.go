@@ -97,6 +97,34 @@ func (q QuestionType) String() string {
 	}
 }
 
+// StringToDifficulty converts a string to its corresponding Difficulty enum value
+func StringToDifficulty(s string) (Difficulty, error) {
+	switch s {
+	case "Easy":
+		return Easy, nil
+	case "Medium":
+		return Medium, nil
+	case "Hard":
+		return Hard, nil
+	default:
+		return 0, nil
+	}
+}
+
+// StringToQuestionType converts a string to its corresponding QuestionType enum value
+func StringToQuestionType(s string) (QuestionType, error) {
+	switch s {
+	case "ReadingComprehension":
+		return ReadingComprehension, nil
+	case "TextCompletion":
+		return TextCompletion, nil
+	case "SentenceEquivalence":
+		return SentenceEquivalence, nil
+	default:
+		return 0, nil
+	}
+}
+
 // Marshal JSON
 func (d Difficulty) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())

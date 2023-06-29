@@ -30,7 +30,57 @@ func (s *UserVerbalStatsService) Create(ctx context.Context, stat *models.UserVe
 		database.VerbalStatsDateField + `)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING ` + database.VerbalStatsIDField
-	return s.DB.QueryRow(ctx, query, userToken, stat.QuestionID, stat.Correct, stat.Answers, stat.Duration, time.Now()).Scan(&stat.ID)
+	err := s.DB.QueryRow(ctx, query, userToken, stat.QuestionID, stat.Correct, stat.Answers, stat.Duration, time.Now()).Scan(&stat.ID)
+	if err != nil {
+		return err
+	}
+	// Get the question to determine the problem type
+	vqs := NewVerbalQuestionService(s.DB)
+	question, err := vqs.GetByID(ctx, stat.QuestionID)
+	if err != nil {
+		return err
+	}
+	problemType := question.Type
+	problemDifficulty := question.Difficulty
+	// After a new stat has been created, update the user performance
+	err = s.UpdateUserPerformance(ctx, userToken, problemType.String(), problemDifficulty.String(), stat.Correct)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserVerbalStatsService) UpdateUserPerformance(ctx context.Context, userToken string, problemType string,
+	problemDifficulty string, correct bool) error {
+	us := NewUserService(s.DB)
+	user, err := us.Get(ctx, userToken)
+	if err != nil {
+		return err
+	}
+	// Initialize VerbalAbility and VerbalAbilityCount if they are nil
+	if user.VerbalAbility == nil {
+		user.VerbalAbility = make(map[string]int)
+	}
+	if user.VerbalAbilityCount == nil {
+		user.VerbalAbilityCount = make(map[string]int)
+	}
+	combination := problemDifficulty + "_" + problemType
+	// Initialize the counts and success rates for this problem type if necessary
+	if _, ok := user.VerbalAbility[combination]; !ok {
+		user.VerbalAbility[combination] = 0
+		user.VerbalAbilityCount[combination] = 0
+	}
+	// Update the success rate and count
+	if correct {
+		user.VerbalAbility[combination] += 1
+	}
+	user.VerbalAbilityCount[combination] += 1
+	// Save the updated user record
+	err = us.Update(ctx, user)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *UserVerbalStatsService) GetVocabularyByQuestionIDs(ctx context.Context, ids []int) (map[int][]models.Word, error) {

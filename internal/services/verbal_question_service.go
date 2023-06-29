@@ -4,15 +4,16 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"math/rand"
 	"strings"
 
 	"github.com/Masterminds/squirrel"
-
 	"github.com/aaaton/golem/v4"
 	"github.com/aaaton/golem/v4/dicts/en"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
+	"github.com/stitchfix/mab"
 	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/models"
 )
@@ -298,6 +299,173 @@ func (s *VerbalQuestionService) GetByIDs(
 		questions = append(questions, q)
 	}
 	return questions, nil
+}
+
+type UserRewardSource struct {
+	user *models.User
+}
+
+func (u *UserRewardSource) GetRewards(ctx context.Context, banditContext interface{}) ([]mab.Dist, error) {
+	// Possible Combinations
+	difficulties := [3]string{"Easy", "Medium", "Hard"}
+	qTypes := [3]string{"ReadingComprehension", "TextCompletion", "SentenceEquivalence"}
+	combinations := make([]string, 9)
+	counter := 0
+	for _, diff := range difficulties {
+		for _, qType := range qTypes {
+			combinations[counter] = diff + "_" + qType
+			counter++
+		}
+	}
+	distributions := make([]mab.Dist, len(combinations))
+	for i, combination := range combinations {
+		ability, ok := u.user.VerbalAbility[combination]
+		var reward float64
+		if ok {
+			reward = 1 - float64(ability/u.user.VerbalAbilityCount[combination]) // We subtract from 1 to recommend questions the user is not good at
+		} else {
+			reward = 0.5 + rand.Float64()*(1-0.5)
+		}
+		println(combination)
+		distributions[i] = mab.Point(reward)
+	}
+	return distributions, nil
+}
+
+/**
+* Fetch a list of questions that are adaptive based on the user
+**/
+func (s *VerbalQuestionService) GetAdaptiveQuestions(ctx context.Context, userToken string, numQuestions int) ([]*models.VerbalQuestion, error) {
+	// Get the user's performance stats
+	us := NewUserService(s.DB)
+	user, err := us.Get(ctx, userToken)
+	if err != nil {
+		return nil, err
+	}
+	// Create a reward source
+	rewardSource := &UserRewardSource{user: user}
+	// Initialize a new epsilon-greedy bandit with epsilon=0.4 and the reward source
+	strategy := mab.NewEpsilonGreedy(0.2)
+	sampler := mab.NewSha1Sampler()
+	bandit := mab.Bandit{
+		RewardSource: rewardSource,
+		Strategy:     strategy,
+		Sampler:      sampler,
+	}
+	difficulties := [3]string{"Easy", "Medium", "Hard"}
+	qTypes := [3]string{"ReadingComprehension", "TextCompletion", "SentenceEquivalence"}
+	combinations := make([]string, 9)
+	counter := 0
+	for _, diff := range difficulties {
+		for _, qType := range qTypes {
+			combinations[counter] = diff + "_" + qType
+			counter++
+		}
+	}
+	// Use the bandit to choose the competencies for the questions
+	selectedCombinations := make([]string, numQuestions)
+	for i := 0; i < numQuestions; i++ {
+		result, err := bandit.SelectArm(context.Background(), userToken, nil)
+		if err != nil {
+			return nil, err
+		}
+		selectedCombinations[i] = combinations[result.Arm]
+	}
+	// Get a question from each selected competency
+	questions := make([]*models.VerbalQuestion, numQuestions)
+	for i, combination := range selectedCombinations {
+		parts := strings.Split(combination, "_")
+		question, err := s.GetByCriteria(ctx, parts[0], parts[1])
+		if err != nil {
+			return nil, err
+		}
+		questions[i] = question
+	}
+	// New UserVerbalStatsService instance
+	uvss := NewUserVerbalStatsService(s.DB)
+	// Get the question IDs
+	questionIDs := make([]int, numQuestions)
+	for i, question := range questions {
+		questionIDs[i] = question.ID
+	}
+	vocabulary, err := uvss.GetVocabularyByQuestionIDs(ctx, questionIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i, question := range questions {
+		questions[i].Vocabulary = vocabulary[question.ID]
+	}
+	return questions, nil
+}
+
+/**
+* Retrieve verbal questions at random based on particular parameters
+* to display to the user.
+**/
+func (s *VerbalQuestionService) GetByCriteria(
+	ctx context.Context,
+	difficulty string,
+	qType string,
+) (*models.VerbalQuestion, error) {
+	difficultyEnum, err := models.StringToDifficulty(difficulty)
+	if err != nil {
+		return nil, err
+	}
+	qTypeEnum, err := models.StringToQuestionType(qType)
+	if err != nil {
+		return nil, err
+	}
+	// Build the SQL query
+	query := squirrel.Select(
+		database.VerbalQuestionsIDField,
+		database.VerbalQuestionsCompetenceField,
+		database.VerbalQuestionsFramedAsField,
+		database.VerbalQuestionsTypeField,
+		database.VerbalQuestionsParagraphField,
+		database.VerbalQuestionsQuestionField,
+		database.VerbalQuestionsOptionsField,
+		database.VerbalQuestionsDifficultyField,
+		database.VerbalQuestionsWordmapField,
+	).
+		From(database.VerbalQuestionsTable).
+		PlaceholderFormat(squirrel.Dollar)
+	query = query.Where(squirrel.Eq{database.VerbalQuestionsTypeField: qTypeEnum})
+	query = query.Where(squirrel.Eq{database.VerbalQuestionsDifficultyField: difficultyEnum})
+	// Execute the SQL query
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+	q := &models.VerbalQuestion{}
+	var optionsJson []byte
+	var wordMapJson []byte
+	err = s.DB.QueryRow(ctx, sqlQuery, args...).
+		Scan(
+			&q.ID,
+			&q.Competence,
+			&q.FramedAs,
+			&q.Type,
+			&q.Paragraph,
+			&q.Question,
+			&optionsJson,
+			&q.Difficulty,
+			&wordMapJson,
+		)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, echo.ErrNotFound
+		}
+		return nil, err
+	}
+	err = json.Unmarshal(optionsJson, &q.Options)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(wordMapJson, &q.VocabWordMap)
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
 }
 
 /**

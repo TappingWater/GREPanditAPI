@@ -86,6 +86,7 @@ func registerRoutes(e *echo.Echo,
 	vqGroup := e.Group("/vbquestions")
 	vqGroup.POST("", verbalQuestionHandler.Create)
 	vqGroup.GET("/:id", verbalQuestionHandler.Get)
+	vqGroup.GET("/adaptive", verbalQuestionHandler.GetAdaptiveQuestions)
 	vqGroup.POST("/random", verbalQuestionHandler.GetRandomQuestions)
 	vqGroup.GET("", verbalQuestionHandler.GetAll)
 

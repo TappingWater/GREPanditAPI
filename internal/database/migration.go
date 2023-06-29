@@ -63,7 +63,9 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE TABLE IF NOT EXISTS `+UsersTable+` (
 			`+UserIDField+` SERIAL PRIMARY KEY,
 			`+UserTokenField+` TEXT NOT NULL UNIQUE,
-			`+UserEmailField+` TEXT NOT NULL
+			`+UserEmailField+` TEXT NOT NULL,
+			`+UserVerbalAbilityField+` JSONB,
+			`+UserVerbalAbilityCountField+` JSONB
 		);
 	`)
 

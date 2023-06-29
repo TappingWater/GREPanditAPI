@@ -127,77 +127,6 @@ func (h *VerbalQuestionHandler) GetAll(c echo.Context) error {
 	return c.JSON(http.StatusOK, q)
 }
 
-// GetRandomQuestions retrieves a specified number of random verbal questions from the database, filtered by various criteria.
-//
-// Example Request:
-// POST /verbal-questions/random
-// Content-Type: application/json
-//
-//	{
-//	    "limit": 5,
-//	    "question_type": "Verbal",
-//	    "competence": "General Knowledge",
-//	    "framed_as": "Question",
-//	    "difficulty": 3,
-//	    "exclude_ids": [1, 2, 3]
-//	}
-//
-// Example Response:
-// HTTP/1.1 200 OK
-// Content-Type: application/json
-//
-// [
-//
-//	{
-//	    "id": 4,
-//	    "text": "What is the capital of France?",
-//	    "answer": "Paris"
-//	    "difficulty": 2,
-//	    "competence": "General Knowledge",
-//	    "framed_as": "Question",
-//	    "type": "Verbal"
-//	},
-//	{
-//	    "id": 5,
-//	    "text": "What is the largest country in the world by land area?",
-//	    "answer": "Russia",
-//	    "difficulty": 2,
-//	    "competence": "General Knowledge",
-//	    "framed_as": "Question",
-//	    "type": "Verbal"
-//	},
-//	{
-//	    "id": 6,
-//	    "text": "Who is the current Prime Minister of the United Kingdom?",
-//	    "answer": "Boris Johnson",
-//	    "difficulty": 2,
-//	    "competence": "General Knowledge",
-//	    "framed_as": "Question",
-//	    "type": "Verbal"
-//	},
-//	{
-//	    "id": 7,
-//	    "text": "What is the largest planet in our solar system?",
-//	    "answer": "Jupiter",
-//	    "difficulty": 2,
-//	    "competence": "General Knowledge",
-//	    "framed_as": "Question",
-//	    "type": "Verbal"
-//	},
-//	{
-//	    "id": 8,
-//	    "text": "What is the smallest country in the world by land area?",
-//	    "answer": "Vatican City",
-//	    "difficulty": 2,
-//	    "competence": "General Knowledge",
-//	    "framed_as": "Question",
-//	    "type": "Verbal"
-//	}
-//
-// ]
-//
-// @param c An echo.Context instance.
-// @return An error response or a JSON response with the array of random questions data.
 func (h *VerbalQuestionHandler) GetRandomQuestions(c echo.Context) error {
 	// Bind the request payload to the req struct
 	req := models.RandomQuestionsRequest{}
@@ -207,6 +136,23 @@ func (h *VerbalQuestionHandler) GetRandomQuestions(c echo.Context) error {
 
 	// Call the service function
 	questions, err := h.Service.Random(c.Request().Context(), req.Limit, req.QuestionType, req.Competence, req.FramedAs, req.Difficulty, req.ExcludeIDs)
+	if err != nil {
+		fmt.Println(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve random questions")
+	}
+
+	return c.JSON(http.StatusOK, questions)
+}
+
+func (h *VerbalQuestionHandler) GetAdaptiveQuestions(c echo.Context) error {
+	// Bind the request payload to the req struct
+	// Call the service function
+	ctx := c.Request().Context()
+	u, err := getUserClaims(c)
+	if err != nil {
+		return err
+	}
+	questions, err := h.Service.GetAdaptiveQuestions(ctx, u.Token, 5)
 	if err != nil {
 		fmt.Println(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve random questions")
