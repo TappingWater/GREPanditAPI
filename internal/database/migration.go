@@ -48,9 +48,9 @@ func Migrate(db *pgxpool.Pool) {
 	// Create join table for verbal questions and words
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+VerbalQuestionWordsJoinTable+` (
-			`+VerbalQuestionWordJoinVerbalField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
-			`+VerbalQuestionWordJoinWordField+` INT REFERENCES `+WordsTable+`(`+WordsIDField+`),
-			PRIMARY KEY (`+VerbalQuestionWordJoinVerbalField+`, `+VerbalQuestionWordJoinWordField+`)
+				`+VerbalQuestionWordJoinVerbalField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`) ON DELETE CASCADE,
+				`+VerbalQuestionWordJoinWordField+` INT REFERENCES `+WordsTable+`(`+WordsIDField+`) ON DELETE CASCADE,
+				PRIMARY KEY (`+VerbalQuestionWordJoinVerbalField+`, `+VerbalQuestionWordJoinWordField+`)
 		);
 	`)
 
@@ -76,13 +76,13 @@ func Migrate(db *pgxpool.Pool) {
 	// Create verbal stats table
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+VerbalStatsTable+` (
-			`+VerbalStatsIDField+` SERIAL PRIMARY KEY,
-			`+VerbalStatsUserField+` TEXT NOT NULL,
-			`+VerbalStatsQuestionField+` INT NOT NULL REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`),
-			`+VerbalStatsCorrectField+` BOOLEAN,
-			`+VerbalStatsAnswersField+` TEXT[],
-			`+VerbalStatsDurationField+` INT,
-			`+VerbalStatsDateField+` TIMESTAMP
+				`+VerbalStatsIDField+` SERIAL PRIMARY KEY,
+				`+VerbalStatsUserField+` TEXT NOT NULL,
+				`+VerbalStatsQuestionField+` INT NOT NULL REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`) ON DELETE CASCADE,
+				`+VerbalStatsCorrectField+` BOOLEAN,
+				`+VerbalStatsAnswersField+` TEXT[],
+				`+VerbalStatsDurationField+` INT,
+				`+VerbalStatsDateField+` TIMESTAMP
 		);
 	`)
 
@@ -93,10 +93,10 @@ func Migrate(db *pgxpool.Pool) {
 	// Create user marked words table
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+UserMarkedWordsTable+` (
-			`+UserMarkedWordsIDField+` SERIAL PRIMARY KEY,
-			`+UserMarkedWordsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
-			`+UserMarkedWordsWordField+` INT NOT NULL REFERENCES `+WordsTable+`(`+WordsIDField+`),
-			UNIQUE (`+UserMarkedWordsUserField+`, `+UserMarkedWordsWordField+`)
+				`+UserMarkedWordsIDField+` SERIAL PRIMARY KEY,
+				`+UserMarkedWordsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
+				`+UserMarkedWordsWordField+` INT NOT NULL REFERENCES `+WordsTable+`(`+WordsIDField+`) ON DELETE CASCADE,
+				UNIQUE (`+UserMarkedWordsUserField+`, `+UserMarkedWordsWordField+`)
 		);
 	`)
 
@@ -107,10 +107,10 @@ func Migrate(db *pgxpool.Pool) {
 	// Create user marked verbal questions table
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+UserMarkedVerbalQuestionsTable+` (
-			`+UserMarkedVerbalQuestionsIDField+` SERIAL PRIMARY KEY,
-			`+UserMarkedVerbalQuestionsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
-			`+UserMarkedVerbalQuestionsQuestionField+` INT,
-			UNIQUE (`+UserMarkedVerbalQuestionsUserField+`, `+UserMarkedVerbalQuestionsQuestionField+`)
+				`+UserMarkedVerbalQuestionsIDField+` SERIAL PRIMARY KEY,
+				`+UserMarkedVerbalQuestionsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
+				`+UserMarkedVerbalQuestionsQuestionField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`) ON DELETE CASCADE,
+				UNIQUE (`+UserMarkedVerbalQuestionsUserField+`, `+UserMarkedVerbalQuestionsQuestionField+`)
 		);
 	`)
 
