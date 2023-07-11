@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -36,7 +37,9 @@ func init() {
 
 func getDBCredentials() (DBSecrets, error) {
 	if os.Getenv("APP_ENV") == "prod" {
-		sess := session.Must(session.NewSession())
+		sess := session.Must(session.NewSession(&aws.Config{
+			Region: aws.String("us-east-1"),
+		}))
 		svc := secretsmanager.New(sess)
 		secretName := "rds!db-d7a1a557-6da2-4b05-8b7d-65ea491f3bd7" // Replace with your secret name
 		input := &secretsmanager.GetSecretValueInput{

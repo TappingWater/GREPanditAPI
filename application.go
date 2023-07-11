@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -67,10 +68,18 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
-	e.Use(customMiddleware.JWTAuthMiddleware(set))
+
+	// Health check (Not within the authGroup, so does not require JWT authentication)
+	e.GET("/", func(c echo.Context) error {
+		return c.String(http.StatusOK, "Healthy!")
+	})
+
+	// Now create a group where the JWT middleware will be applied
+	authGroup := e.Group("")
+	authGroup.Use(customMiddleware.JWTAuthMiddleware(set))
 
 	// Register routes
-	registerRoutes(e, verbalQuestionHandler, wordHandler, userHandler, userVerbalStatsHandler)
+	registerRoutes(e, authGroup, verbalQuestionHandler, wordHandler, userHandler, userVerbalStatsHandler)
 
 	// Start the server
 	port := "8080"
@@ -79,12 +88,14 @@ func main() {
 }
 
 func registerRoutes(e *echo.Echo,
+	authGroup *echo.Group,
 	verbalQuestionHandler *handlers.VerbalQuestionHandler,
 	wordHandler *handlers.WordHandler,
 	userHandler *handlers.UserHandler,
 	userVerbalStatHandler *handlers.UserVerbalStatHandler) {
+
 	// VerbalQuestion routes
-	vqGroup := e.Group("/vbquestions")
+	vqGroup := authGroup.Group("/vbquestions")
 	vqGroup.POST("", verbalQuestionHandler.Create)
 	vqGroup.GET("/:id", verbalQuestionHandler.Get)
 	vqGroup.GET("/adaptive", verbalQuestionHandler.GetAdaptiveQuestions)
@@ -93,7 +104,7 @@ func registerRoutes(e *echo.Echo,
 	vqGroup.GET("", verbalQuestionHandler.GetAll)
 
 	// Word routes
-	wGroup := e.Group("/words")
+	wGroup := authGroup.Group("/words")
 	wGroup.POST("", wordHandler.Create)
 	wGroup.PATCH("/marked", wordHandler.MarkWords)
 	wGroup.GET("/marked", wordHandler.GetMarkedWords)
@@ -101,7 +112,7 @@ func registerRoutes(e *echo.Echo,
 	wGroup.GET("/word/:word", wordHandler.GetByWord)
 
 	// User routes
-	uGroup := e.Group("/users")
+	uGroup := authGroup.Group("/users")
 	uGroup.POST("", userHandler.Create)
 	uGroup.GET("", userHandler.Get)
 	uGroup.POST("/marked-words", userHandler.AddMarkedWords)
@@ -113,7 +124,8 @@ func registerRoutes(e *echo.Echo,
 	uGroup.GET("/problematic-words", userHandler.GetProblematicWordsByUserToken)
 
 	// UserVerbalStat routes
-	uvsGroup := e.Group("/verbal-stats")
+	uvsGroup := authGroup.Group("/verbal-stats")
 	uvsGroup.POST("", userVerbalStatHandler.Create)
 	uvsGroup.GET("", userVerbalStatHandler.GetVerbalStatsByUserToken)
+
 }
