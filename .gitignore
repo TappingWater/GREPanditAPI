@@ -1,2 +1,9 @@
 .env.dev
 .env.prod
+.env
+*.log
+bin
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

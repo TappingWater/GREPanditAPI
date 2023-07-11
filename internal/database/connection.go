@@ -2,16 +2,25 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/joho/godotenv"
 )
 
-/**
-* Checks for environment variables to be loaded correctly.
-**/
+type DBSecrets struct {
+	Host     string `json:"host"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	DBName   string `json:"dbname"`
+	Port     string `json:"port"`
+	SSLMode  string `json:"sslmode"`
+}
+
 func init() {
 	// Load environment variables from .env file during development
 	appEnv := os.Getenv("APP_ENV")
@@ -25,25 +34,57 @@ func init() {
 	}
 }
 
+func getDBCredentials() (DBSecrets, error) {
+	if os.Getenv("APP_ENV") == "prod" {
+		sess := session.Must(session.NewSession())
+		svc := secretsmanager.New(sess)
+		secretName := "rds!db-d7a1a557-6da2-4b05-8b7d-65ea491f3bd7" // Replace with your secret name
+		input := &secretsmanager.GetSecretValueInput{
+			SecretId: &secretName,
+		}
+		result, err := svc.GetSecretValue(input)
+		if err != nil {
+			return DBSecrets{}, err
+		}
+		var secretData DBSecrets
+		err = json.Unmarshal([]byte(*result.SecretString), &secretData)
+		if err != nil {
+			return DBSecrets{}, err
+		}
+		return secretData, nil
+	} else {
+		return DBSecrets{
+			Host:     os.Getenv("DB_HOST"),
+			Username: os.Getenv("DB_USER"),
+			Password: os.Getenv("DB_PASSWORD"),
+			DBName:   os.Getenv("DB_NAME"),
+			Port:     os.Getenv("DB_PORT"),
+			SSLMode:  os.Getenv("DB_SSLMODE"),
+		}, nil
+	}
+}
+
 /**
 * Connects to the POSTGreSQL Db instance and sets up a connection pool to be
-* used. Requires environment variables to be passed correctly.
+* used. Requires secrets to be accessible from AWS Secrets Manager.
 **/
 func ConnectDB() (*pgxpool.Pool, error) {
+	secrets, err := getDBCredentials()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve DB secrets: %v", err)
+	}
 	connStr := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_SSLMODE"),
+		secrets.Host,
+		secrets.Username,
+		secrets.Password,
+		secrets.DBName,
+		secrets.Port,
+		secrets.SSLMode,
 	)
-
 	dbpool, err := pgxpool.Connect(context.Background(), connStr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %v", err)
 	}
-
 	return dbpool, nil
 }
