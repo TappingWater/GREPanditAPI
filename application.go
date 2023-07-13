@@ -72,6 +72,7 @@ func main() {
 		AllowOrigins:     []string{"https://www.grepandit.com"},
 		AllowMethods:     []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete, http.MethodOptions},
 		AllowHeaders:     []string{echo.HeaderAuthorization, echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		ExposeHeaders:    []string{"Access-Control-Allow-Origin"},
 		AllowCredentials: true,
 	}))
 
