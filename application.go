@@ -69,10 +69,9 @@ func main() {
 	e.Use(middleware.Recover())
 	// CORS middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"https://www.grepandit.com"},
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete, http.MethodOptions},
-		AllowHeaders:     []string{echo.HeaderAuthorization, echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
-		ExposeHeaders:    []string{"Access-Control-Allow-Origin"},
+		AllowHeaders:     []string{"*"},
 		AllowCredentials: true,
 	}))
 
