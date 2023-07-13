@@ -65,7 +65,6 @@ func main() {
 
 	// Start the Echo server
 	e := echo.New()
-	e.Pre(middleware.AddTrailingSlash())
 	// CORS middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{"*"},
@@ -111,7 +110,7 @@ func registerRoutes(e *echo.Echo,
 	vqGroup.GET("", verbalQuestionHandler.GetAll)
 
 	// Word routes
-	wGroup := authGroup.Group("/words")
+	wGroup := e.Group("/words")
 	wGroup.POST("", wordHandler.Create)
 	wGroup.PATCH("/marked", wordHandler.MarkWords)
 	wGroup.GET("/marked", wordHandler.GetMarkedWords)

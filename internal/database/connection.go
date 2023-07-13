@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 type DBSecrets struct {
@@ -19,7 +21,11 @@ type DBSecrets struct {
 
 func getDBCredentials() (DBSecrets, error) {
 	if os.Getenv("APP_ENV") == "dev" {
-		return DBSecrets{os.Getenv("DB_HOST"), os.Getenv("DB_PASSWORD")}, nil
+		err := godotenv.Load(".env")
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+		return DBSecrets{os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD")}, nil
 	}
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("AWS_REGION")))
 	if err != nil {
@@ -48,6 +54,7 @@ func getDBCredentials() (DBSecrets, error) {
 * used. Requires secrets to be accessible from AWS Secrets Manager.
 **/
 func ConnectDB() (*pgxpool.Pool, error) {
+	print(os.Getenv("APP_ENV"))
 	secrets, err := getDBCredentials()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve DB secrets: %v", err)
