@@ -44,7 +44,7 @@ func main() {
 
 	autoRefresh := jwk.NewAutoRefresh(context.Background())
 	// Configure the AutoRefresh  to refresh every 15 minutes
-	jwksURL := "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_twk93JaQC/.well-known/jwks.json"
+	jwksURL := "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_dl3uepA2b/.well-known/jwks.json"
 	autoRefresh.Configure(jwksURL, jwk.WithMinRefreshInterval(15*time.Minute))
 	set, err := autoRefresh.Fetch(context.Background(), jwksURL)
 	if err != nil {
