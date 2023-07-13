@@ -65,8 +65,7 @@ func main() {
 
 	// Start the Echo server
 	e := echo.New()
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
+	e.Pre(middleware.AddTrailingSlash())
 	// CORS middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{"*"},
@@ -74,6 +73,8 @@ func main() {
 		AllowHeaders:     []string{"*"},
 		AllowCredentials: true,
 	}))
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
 	// Health check (Not within the authGroup, so does not require JWT authentication)
 	e.GET("/", func(c echo.Context) error {
