@@ -70,7 +70,8 @@ func main() {
 	// CORS middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"https://www.grepandit.com"},
-		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
+		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete, http.MethodOptions},
+		AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType, "X-Custom-Header"},
 	}))
 
 	// Health check (Not within the authGroup, so does not require JWT authentication)
