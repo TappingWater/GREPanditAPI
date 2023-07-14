@@ -88,7 +88,7 @@ func main() {
 	registerRoutes(e, authGroup, verbalQuestionHandler, wordHandler, userHandler, userVerbalStatsHandler)
 
 	// Start the server
-	port := "8080"
+	port := "5000"
 	fmt.Printf("Starting server on port %s\n", port)
 	e.Start(fmt.Sprintf(":%s", port))
 }
