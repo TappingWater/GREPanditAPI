@@ -76,7 +76,7 @@ func main() {
 	e.Use(middleware.Recover())
 
 	// Health check (Not within the authGroup, so does not require JWT authentication)
-	e.GET("/", func(c echo.Context) error {
+	e.GET("/health", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Healthy!")
 	})
 
@@ -88,7 +88,7 @@ func main() {
 	registerRoutes(e, authGroup, verbalQuestionHandler, wordHandler, userHandler, userVerbalStatsHandler)
 
 	// Start the server
-	port := "5000"
+	port := "8080"
 	fmt.Printf("Starting server on port %s\n", port)
 	e.Start(fmt.Sprintf(":%s", port))
 }
