@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -44,7 +46,13 @@ func main() {
 
 	autoRefresh := jwk.NewAutoRefresh(context.Background())
 	// Configure the AutoRefresh  to refresh every 15 minutes
-	jwksURL := "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_dl3uepA2b/.well-known/jwks.json"
+	if os.Getenv("APP_ENV") == "dev" {
+		err = godotenv.Load(".env")
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+	jwksURL := os.Getenv("AWS_COGNITO_URL")
 	autoRefresh.Configure(jwksURL, jwk.WithMinRefreshInterval(15*time.Minute))
 	set, err := autoRefresh.Fetch(context.Background(), jwksURL)
 	if err != nil {
