@@ -35,6 +35,7 @@ func (h *UserHandler) Create(c echo.Context) error {
 		if strings.Contains(err.Error(), "duplicate key value") {
 			return echo.NewHTTPError(409, "User already exists")
 		}
+		print(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create user")
 	}
 	return c.JSON(http.StatusCreated, u)

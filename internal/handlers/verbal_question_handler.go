@@ -109,11 +109,13 @@ func (h *VerbalQuestionHandler) GetAll(c echo.Context) error {
 	idStrings := strings.Split(idsParam, ",")
 	ids := make([]int, 0, len(idStrings))
 	for _, idString := range idStrings {
-		id, err := strconv.Atoi(strings.TrimSpace(idString))
-		if err != nil {
-			return err
+		if len(idString) > 0 {
+			id, err := strconv.Atoi(strings.TrimSpace(idString))
+			if err != nil {
+				return err
+			}
+			ids = append(ids, id)
 		}
-		ids = append(ids, id)
 	}
 	ctx := c.Request().Context()
 	q, err := h.Service.GetByIDs(ctx, ids)
@@ -158,11 +160,13 @@ func (h *VerbalQuestionHandler) GetAdaptiveQuestions(c echo.Context) error {
 	qidStrArr := strings.Split(strings.Trim(qidsToAvoidParam, "[]"), ",")
 	qIds := make([]int, 0, len(qidStrArr))
 	for _, idString := range qidStrArr {
-		id, err := strconv.Atoi(strings.TrimSpace(idString))
-		if err != nil {
-			return err
+		if len(idString) > 0 {
+			id, err := strconv.Atoi(strings.TrimSpace(idString))
+			if err != nil {
+				return err
+			}
+			qIds = append(qIds, id)
 		}
-		qIds = append(qIds, id)
 	}
 	questions, err := h.Service.GetAdaptiveQuestions(ctx, u.Token, 5, qIds)
 	if err != nil {
@@ -189,18 +193,22 @@ func (h *VerbalQuestionHandler) GetQuestionsOnVocab(c echo.Context) error {
 	wordIds := make([]int, 0, len(wordStrArr))
 	qIds := make([]int, 0, len(qidStrArr))
 	for _, idString := range wordStrArr {
-		id, err := strconv.Atoi(strings.TrimSpace(idString))
-		if err != nil {
-			return err
+		if len(idString) > 0 {
+			id, err := strconv.Atoi(strings.TrimSpace(idString))
+			if err != nil {
+				return err
+			}
+			wordIds = append(wordIds, id)
 		}
-		wordIds = append(wordIds, id)
 	}
 	for _, idString := range qidStrArr {
-		id, err := strconv.Atoi(strings.TrimSpace(idString))
-		if err != nil {
-			return err
+		if len(idString) > 0 {
+			id, err := strconv.Atoi(strings.TrimSpace(idString))
+			if err != nil {
+				return err
+			}
+			qIds = append(qIds, id)
 		}
-		qIds = append(qIds, id)
 	}
 	questions, err := h.Service.GetQuestionsOnVocab(ctx, u.Token, qIds, wordIds)
 	if err != nil {

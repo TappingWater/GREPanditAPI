@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
-	"github.com/stitchfix/mab"
 	"grepandit.com/api/internal/database"
 	"grepandit.com/api/internal/models"
 )
@@ -301,36 +300,6 @@ func (s *VerbalQuestionService) GetByIDs(
 	return questions, nil
 }
 
-type UserRewardSource struct {
-	user *models.User
-}
-
-func (u *UserRewardSource) GetRewards(ctx context.Context, banditContext interface{}) ([]mab.Dist, error) {
-	// Possible Combinations
-	difficulties := [3]string{"Easy", "Medium", "Hard"}
-	qTypes := [3]string{"ReadingComprehension", "TextCompletion", "SentenceEquivalence"}
-	combinations := make([]string, 9)
-	counter := 0
-	for _, diff := range difficulties {
-		for _, qType := range qTypes {
-			combinations[counter] = diff + "_" + qType
-			counter++
-		}
-	}
-	distributions := make([]mab.Dist, len(combinations))
-	for i, combination := range combinations {
-		ability, ok := u.user.VerbalAbility[combination]
-		var reward float64
-		if ok {
-			reward = 1 - float64(ability/u.user.VerbalAbilityCount[combination]) // We subtract from 1 to recommend questions the user is not good at
-		} else {
-			reward = 0.5 + rand.Float64()*(1-0.5)
-		}
-		distributions[i] = mab.Point(reward)
-	}
-	return distributions, nil
-}
-
 /**
 * Fetch a list of questions that are adaptive based on the user
 **/
@@ -343,50 +312,58 @@ func (s *VerbalQuestionService) GetAdaptiveQuestions(ctx context.Context, userTo
 		return nil, err
 	}
 	// Create a reward source
-	rewardSource := &UserRewardSource{user: user}
+	userElo := user.VerbalAbility
 	// Initialize a new epsilon-greedy bandit with epsilon=0.4 and the reward source
-	strategy := mab.NewEpsilonGreedy(0.2)
-	sampler := mab.NewSha1Sampler()
-	bandit := mab.Bandit{
-		RewardSource: rewardSource,
-		Strategy:     strategy,
-		Sampler:      sampler,
-	}
-	difficulties := [3]string{"Easy", "Medium", "Hard"}
 	qTypes := [3]string{"ReadingComprehension", "TextCompletion", "SentenceEquivalence"}
-	combinations := make([]string, 9)
-	counter := 0
-	for _, diff := range difficulties {
-		for _, qType := range qTypes {
-			combinations[counter] = diff + "_" + qType
-			counter++
-		}
-	}
-	// Use the bandit to choose the competencies for the questions
-	selectedCombinations := make([]string, numQuestions)
-	for i := 0; i < numQuestions; i++ {
-		result, err := bandit.SelectArm(context.Background(), userToken, nil)
-		if err != nil {
-			return nil, err
-		}
-		selectedCombinations[i] = combinations[result.Arm]
-	}
 	// Get a question from each selected competency
-	questions := make([]*models.VerbalQuestion, numQuestions)
+	questions := make([]*models.VerbalQuestion, 3)
 	successCount := 0
-	for _, combination := range selectedCombinations {
-		parts := strings.Split(combination, "_")
-		question, err := s.GetByCriteria(ctx, parts[0], parts[1], excludeIds)
-		if err != nil {
-			// If an error occurred, just move to the next one.
-			print(err.Error())
-			continue
+	for _, qType := range qTypes {
+		value, ok := userElo[qType]
+		if !ok {
+			question, err := s.GetByCriteria(ctx, "Easy", qType, excludeIds)
+			if err != nil {
+				// If an error occurred, just move to the next one.
+				print(err.Error())
+				continue
+			}
+			// Only assign to the slice when we have a successful question.
+			questions[successCount] = question
+			successCount++
+		} else {
+			if value < 1000 {
+				question, err := s.GetByCriteria(ctx, "Easy", qType, excludeIds)
+				if err != nil {
+					// If an error occurred, just move to the next one.
+					print(err.Error())
+					continue
+				}
+				// Only assign to the slice when we have a successful question.
+				questions[successCount] = question
+				successCount++
+			} else if value < 2500 {
+				question, err := s.GetByCriteria(ctx, "Medium", qType, excludeIds)
+				if err != nil {
+					// If an error occurred, just move to the next one.
+					print(err.Error())
+					continue
+				}
+				// Only assign to the slice when we have a successful question.
+				questions[successCount] = question
+				successCount++
+			} else {
+				question, err := s.GetByCriteria(ctx, "Hard", qType, excludeIds)
+				if err != nil {
+					// If an error occurred, just move to the next one.
+					print(err.Error())
+					continue
+				}
+				// Only assign to the slice when we have a successful question.
+				questions[successCount] = question
+				successCount++
+			}
 		}
-		// Only assign to the slice when we have a successful question.
-		questions[successCount] = question
-		successCount++
 	}
-	print(successCount)
 	// If we have less than numQuestions, resize the slice.
 	if successCount < numQuestions {
 		questions = questions[:successCount]
@@ -439,6 +416,7 @@ func (s *VerbalQuestionService) GetByCriteria(
 		database.VerbalQuestionsWordmapField,
 	).
 		From(database.VerbalQuestionsTable).
+		OrderBy("RANDOM()").
 		PlaceholderFormat(squirrel.Dollar)
 	query = query.Where(squirrel.Eq{database.VerbalQuestionsTypeField: qTypeEnum})
 	query = query.Where(squirrel.Eq{database.VerbalQuestionsDifficultyField: difficultyEnum})

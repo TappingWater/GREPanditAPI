@@ -26,11 +26,10 @@ func (s *UserService) Create(ctx context.Context, u *models.User) error {
 		INSERT INTO ` + database.UsersTable + ` (` +
 		database.UserTokenField + `, ` +
 		database.UserEmailField + `, ` +
-		database.UserVerbalAbilityField + `, ` +
-		database.UserVerbalAbilityCountField + `)
-		VALUES ($1, $2)
+		database.UserVerbalAbilityField + `)
+		VALUES ($1, $2, $3)
 		RETURNING ` + database.UserIDField
-	err := s.DB.QueryRow(ctx, queryInsert, u.Token, u.Email, nil, nil).Scan(&u.ID)
+	err := s.DB.QueryRow(ctx, queryInsert, u.Token, u.Email, nil).Scan(&u.ID)
 	if err != nil {
 		// Check if it is a unique constraint violation error
 		if pgErr, ok := err.(*pq.Error); ok {
@@ -49,11 +48,10 @@ func (s *UserService) Update(ctx context.Context, u *models.User) error {
 		SET ` +
 		database.UserTokenField + ` = $1, ` +
 		database.UserEmailField + ` = $2, ` +
-		database.UserVerbalAbilityField + ` = $3, ` +
-		database.UserVerbalAbilityCountField + ` = $4
-		WHERE ` + database.UserIDField + ` = $5
+		database.UserVerbalAbilityField + ` = $3
+		WHERE ` + database.UserIDField + ` = $4
 		RETURNING ` + database.UserIDField
-	err := s.DB.QueryRow(ctx, queryUpdate, u.Token, u.Email, u.VerbalAbility, u.VerbalAbilityCount, u.ID).Scan(&u.ID)
+	err := s.DB.QueryRow(ctx, queryUpdate, u.Token, u.Email, u.VerbalAbility, u.ID).Scan(&u.ID)
 	if err != nil {
 		// Return other database-related errors as is
 		return err
@@ -67,7 +65,7 @@ func (s *UserService) Get(ctx context.Context, userToken string) (*models.User, 
 		SELECT * FROM ` + database.UsersTable + `
 		WHERE ` + database.UserTokenField + ` = $1`
 
-	err := s.DB.QueryRow(ctx, query, userToken).Scan(&u.ID, &u.Token, &u.Email, &u.VerbalAbility, &u.VerbalAbilityCount)
+	err := s.DB.QueryRow(ctx, query, userToken).Scan(&u.ID, &u.Token, &u.Email, &u.VerbalAbility)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, echo.ErrNotFound

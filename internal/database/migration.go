@@ -15,8 +15,8 @@ func Migrate(db *pgxpool.Pool) {
 		CREATE TABLE IF NOT EXISTS `+WordsTable+` (
 			`+WordsIDField+` SERIAL PRIMARY KEY,
 			`+WordsWordField+` VARCHAR(255) UNIQUE,
-			`+WordsExamplesField+` TEXT[],
 			`+WordsMeaningsField+` JSONB,
+			`+WordsExamplesField+` TEXT[],
 			`+WordsMarkedField+` BOOLEAN DEFAULT FALSE NOT NULL
 		);
 	`)
@@ -45,6 +45,20 @@ func Migrate(db *pgxpool.Pool) {
 		log.Fatalf("Could not create "+VerbalQuestionsTable+" table: %v", err)
 	}
 
+	// Create user table
+	_, err = db.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS `+UsersTable+` (
+			`+UserIDField+` SERIAL PRIMARY KEY,
+			`+UserTokenField+` TEXT NOT NULL UNIQUE,
+			`+UserEmailField+` TEXT NOT NULL,
+			`+UserVerbalAbilityField+` JSONB
+		);
+	`)
+
+	if err != nil {
+		log.Fatalf("Could not create "+UsersTable+" table: %v", err)
+	}
+
 	// Create join table for verbal questions and words
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+VerbalQuestionWordsJoinTable+` (
@@ -56,21 +70,6 @@ func Migrate(db *pgxpool.Pool) {
 
 	if err != nil {
 		log.Fatalf("Could not create "+VerbalQuestionWordsJoinTable+" table: %v", err)
-	}
-
-	// Create user table
-	_, err = db.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS `+UsersTable+` (
-			`+UserIDField+` SERIAL PRIMARY KEY,
-			`+UserTokenField+` TEXT NOT NULL UNIQUE,
-			`+UserEmailField+` TEXT NOT NULL,
-			`+UserVerbalAbilityField+` JSONB,
-			`+UserVerbalAbilityCountField+` JSONB
-		);
-	`)
-
-	if err != nil {
-		log.Fatalf("Could not create "+UsersTable+" table: %v", err)
 	}
 
 	// Create verbal stats table
@@ -90,25 +89,11 @@ func Migrate(db *pgxpool.Pool) {
 		log.Fatalf("Could not create "+VerbalStatsTable+" table: %v", err)
 	}
 
-	// Create user marked words table
-	_, err = db.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS `+UserMarkedWordsTable+` (
-				`+UserMarkedWordsIDField+` SERIAL PRIMARY KEY,
-				`+UserMarkedWordsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
-				`+UserMarkedWordsWordField+` INT NOT NULL REFERENCES `+WordsTable+`(`+WordsIDField+`) ON DELETE CASCADE,
-				UNIQUE (`+UserMarkedWordsUserField+`, `+UserMarkedWordsWordField+`)
-		);
-	`)
-
-	if err != nil {
-		log.Fatalf("Could not create "+UserMarkedWordsTable+" table: %v", err)
-	}
-
 	// Create user marked verbal questions table
 	_, err = db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS `+UserMarkedVerbalQuestionsTable+` (
 				`+UserMarkedVerbalQuestionsIDField+` SERIAL PRIMARY KEY,
-				`+UserMarkedVerbalQuestionsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
+				`+UserMarkedVerbalQuestionsUserField+` TEXT,
 				`+UserMarkedVerbalQuestionsQuestionField+` INT REFERENCES `+VerbalQuestionsTable+`(`+VerbalQuestionsIDField+`) ON DELETE CASCADE,
 				UNIQUE (`+UserMarkedVerbalQuestionsUserField+`, `+UserMarkedVerbalQuestionsQuestionField+`)
 		);

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"time"
 
 	"github.com/Masterminds/squirrel"
@@ -57,24 +58,33 @@ func (s *UserVerbalStatsService) UpdateUserPerformance(ctx context.Context, user
 	if err != nil {
 		return err
 	}
+	print("USer found")
+	print(user.VerbalAbility)
 	// Initialize VerbalAbility and VerbalAbilityCount if they are nil
 	if user.VerbalAbility == nil {
 		user.VerbalAbility = make(map[string]int)
 	}
-	if user.VerbalAbilityCount == nil {
-		user.VerbalAbilityCount = make(map[string]int)
-	}
-	combination := problemDifficulty + "_" + problemType
+	combination := problemType
 	// Initialize the counts and success rates for this problem type if necessary
-	if _, ok := user.VerbalAbility[combination]; !ok {
-		user.VerbalAbility[combination] = 0
-		user.VerbalAbilityCount[combination] = 0
-	}
 	// Update the success rate and count
+	maxElo := 4500
 	if correct {
-		user.VerbalAbility[combination] += 1
+		if problemDifficulty == "Easy" {
+			user.VerbalAbility[combination] = int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+100)))
+		} else if problemDifficulty == "Medium" {
+			user.VerbalAbility[combination] += int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+150)))
+		} else {
+			user.VerbalAbility[combination] += int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+200)))
+		}
+	} else {
+		if problemDifficulty == "Easy" {
+			user.VerbalAbility[combination] = int(math.Max(0, float64(user.VerbalAbility[combination]-100)))
+		} else if problemDifficulty == "Medium" {
+			user.VerbalAbility[combination] += int(math.Max(0, float64(user.VerbalAbility[combination]-150)))
+		} else {
+			user.VerbalAbility[combination] += int(math.Max(0, float64(user.VerbalAbility[combination]-200)))
+		}
 	}
-	user.VerbalAbilityCount[combination] += 1
 	// Save the updated user record
 	err = us.Update(ctx, user)
 	if err != nil {
