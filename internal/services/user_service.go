@@ -42,6 +42,7 @@ func (s *UserService) Create(ctx context.Context, u *models.User) error {
 	}
 	return nil
 }
+
 func (s *UserService) Update(ctx context.Context, u *models.User) error {
 	queryUpdate := `
 		UPDATE ` + database.UsersTable + `

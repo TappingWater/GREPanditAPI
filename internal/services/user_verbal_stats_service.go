@@ -72,17 +72,17 @@ func (s *UserVerbalStatsService) UpdateUserPerformance(ctx context.Context, user
 		if problemDifficulty == "Easy" {
 			user.VerbalAbility[combination] = int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+100)))
 		} else if problemDifficulty == "Medium" {
-			user.VerbalAbility[combination] += int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+150)))
+			user.VerbalAbility[combination] = int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+150)))
 		} else {
-			user.VerbalAbility[combination] += int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+200)))
+			user.VerbalAbility[combination] = int(math.Min(float64(maxElo), float64(user.VerbalAbility[combination]+200)))
 		}
 	} else {
 		if problemDifficulty == "Easy" {
 			user.VerbalAbility[combination] = int(math.Max(0, float64(user.VerbalAbility[combination]-100)))
 		} else if problemDifficulty == "Medium" {
-			user.VerbalAbility[combination] += int(math.Max(0, float64(user.VerbalAbility[combination]-150)))
+			user.VerbalAbility[combination] = int(math.Max(0, float64(user.VerbalAbility[combination]-150)))
 		} else {
-			user.VerbalAbility[combination] += int(math.Max(0, float64(user.VerbalAbility[combination]-200)))
+			user.VerbalAbility[combination] = int(math.Max(0, float64(user.VerbalAbility[combination]-200)))
 		}
 	}
 	// Save the updated user record

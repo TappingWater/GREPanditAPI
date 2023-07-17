@@ -103,6 +103,20 @@ func Migrate(db *pgxpool.Pool) {
 		log.Fatalf("Could not create "+UserMarkedVerbalQuestionsTable+" table: %v", err)
 	}
 
+	// Create user marked words table
+	_, err = db.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS `+UserMarkedWordsTable+` (
+				`+UserMarkedWordsIDField+` SERIAL PRIMARY KEY,
+				`+UserMarkedWordsUserField+` TEXT NOT NULL REFERENCES `+UsersTable+`(`+UserTokenField+`),
+				`+UserMarkedWordsWordField+` INT NOT NULL REFERENCES `+WordsTable+`(`+WordsIDField+`) ON DELETE CASCADE,
+				UNIQUE (`+UserMarkedWordsUserField+`, `+UserMarkedWordsWordField+`)
+		);
+	`)
+
+	if err != nil {
+		log.Fatalf("Could not create "+UserMarkedWordsTable+" table: %v", err)
+	}
+
 	// Create needed indexes for querying and improving performance
 	_, err = db.Exec(ctx, `
 		CREATE INDEX IF NOT EXISTS idx_word ON `+WordsTable+`(`+WordsWordField+`);
