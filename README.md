@@ -16,8 +16,6 @@ backend for the GREPandit frontend.
 
 ## Installation
 
-## Backend Go REST API Installation and Setup
-
 To set up the backend for GREPandit:
 
 1. **Clone the API Repository**:

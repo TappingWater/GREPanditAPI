@@ -85,6 +85,13 @@ func main() {
 
 	// Health check (Not within the authGroup, so does not require JWT authentication)
 	e.GET("/health", func(c echo.Context) error {
+		if err := db.Ping(context.Background()); err != nil {
+			// Reconnect
+			db, err = database.ConnectDB()
+			if err != nil {
+				log.Fatalf("Failed to connect to database: %v", err)
+			}
+		}
 		return c.String(http.StatusOK, "Healthy!")
 	})
 
