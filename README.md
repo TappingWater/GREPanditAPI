@@ -4,7 +4,7 @@
 
 Official Domain: [GREPandit](https://grepandit.com)
 
-Front end Logic: [GREPanditAPI](https://github.com/TappingWater/GREPanditAPI)
+Front end Logic: [GREPanditAPI](https://github.com/TappingWater/GREPandit)
 
 ## Overview
 
