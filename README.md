@@ -14,6 +14,51 @@ backend for the GREPandit frontend.
 -   **Language**: Golang
 -   **Framework**: Echo-Go
 
+## Installation
+
+## Backend Go REST API Installation and Setup
+
+To set up the backend for GREPandit:
+
+1. **Clone the API Repository**:
+
+    ```bash
+    git clone [YOUR API REPO LINK HERE]
+    ```
+
+2. **Initialize Go Modules**: Navigate to your API directory and run:
+
+    ```bash
+    go mod init
+    ```
+
+3. **Environment Configuration**: The application requires a `.env` file for
+   proper configuration. Create a `.env` file in the root directory of the API
+   with the following content:
+
+    ```
+    APP_ENV=YOUR_ENVIRONMENT_HERE (e.g., dev)
+    DB_HOST=YOUR_DB_HOST_HERE
+    DB_PORT=YOUR_DB_PORT_HERE
+    DB_USER=YOUR_DB_USER_HERE
+    DB_PASSWORD=YOUR_DB_PASSWORD_HERE
+    DB_NAME=YOUR_DB_NAME_HERE
+    DB_SSLMODE=YOUR_DB_SSLMODE_HERE (e.g., disable)
+    AWS_COGNITO_URL=YOUR_COGNITO_URL_HERE
+    ```
+
+    _Note_: For development purposes, use `dev` for the `APP_ENV` value. Ensure
+    that you're using your configurations and not sharing sensitive values
+    publicly.
+
+4. **PostgreSQL Instance**: The application requires a running instance of
+   PostgreSQL. Ensure that you have PostgreSQL set up and running, and that the
+   connection details in the `.env` file are correct.
+5. **Run Development Server**:
+    ```bash
+     go run application.go
+    ```
+
 ## Structure
 
 The code structure promotes separation of concerns by organizing into distinct
