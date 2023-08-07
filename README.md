@@ -1,6 +1,10 @@
 # GREPanditAPI Backend
 
-![GREPanditAPI Logo](https://ibb.co/XxDScC6)
+![GREPandit Logo](./public/icon-192x192.png)
+
+Official Domain: [GREPandit](https://grepandit.com)
+
+Front end Logic: [GREPanditAPI](https://github.com/TappingWater/GREPanditAPI)
 
 ## Overview
 
