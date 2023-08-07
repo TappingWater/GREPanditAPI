@@ -28,10 +28,10 @@ import (
 * Create a .env.prod file  and env.dev file and configure required variables:
 * APP_ENV, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSLMODE
 * To run in development:
-* APP_ENV=development go run cmd/server/main.go
+* APP_ENV=dev go run application.go
 * To run in production:
 * # Build the binary
-* go build -o appName cmd/server/main.go
+* go build -o appName application.go
 * # Run the binary in production mode
 * APP_ENV=prod ./appName
 **/
